@@ -47,12 +47,24 @@ except ImportError:  # 直接以脚本方式运行时的兜底
 
 # 品类关键词（按 priority 顺序匹配商品名/分类名）
 CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
-    ("套餐", ("餐", "套餐", "三件套", "四件套", "分享", "桶", "盒")),
-    ("汉堡", ("堡", "汉堡", "巨无霸", "安格斯", "麦辣鸡腿", "板烧")),
-    ("小食", ("薯条", "薯饼", "鸡块", "鸡翅", "鸡腿", "洋葱圈", "派", "玉米", "沙拉", "小食")),
-    ("饮料", ("可乐", "雪碧", "咖啡", "茶", "果汁", "牛奶", "奶昔", "饮", "水", "摩卡", "拿铁")),
-    ("甜品", ("冰淇淋", "冰激凌", "甜筒", "新地", "麦旋风", "布丁", "蛋糕", "甜品")),
+    ("套餐", ("套餐", "三件套", "四件套", "分享餐", "分享桶", "全家桶", "单人餐", "双人餐", "四人餐")),
+    ("汉堡", ("堡", "汉堡", "巨无霸", "安格斯", "板烧", "麦辣鸡腿")),
+    ("甜品", ("冰淇淋", "冰激凌", "甜筒", "圆筒", "新地", "麦旋风", "布丁", "蛋糕", "派")),
+    ("饮料", ("可乐", "雪碧", "咖啡", "奶茶", "果汁", "牛奶", "奶昔", "摩卡", "拿铁", "饮品", "矿泉水")),
+    ("小食", ("薯条", "薯饼", "鸡块", "鸡翅", "鸡腿", "洋葱圈", "玉米", "沙拉", "小食", "鸡排")),
 ]
+
+# 菜单分类名 -> 品类（分类名比商品名更可靠，优先使用）
+CATEGORY_FROM_SECTION: list[tuple[str, tuple[str, ...]]] = [
+    ("饮料", ("饮品", "麦咖啡")),
+    ("甜品", ("甜品",)),
+    ("小食", ("小食", "炸鸡")),
+    ("汉堡", ("汉堡", "巨无霸", "安格斯", "大堡口福", "开心乐园", "卷")),
+    ("套餐", ("套餐", "分享", "500大卡")),
+]
+
+# 非食用周边（贴纸、卡片、玩具等），结构配餐时应排除
+NON_FOOD_WORDS = ("贴纸", "贴", "卡片", "徽章", "玩偶", "玩具", "手办", "摆件", "盲盒", "周边")
 
 # 忌口关键词 -> 命中即排除
 SPICY_WORDS = ("辣", "麻辣", "香辣", "韩式辣椒", "椒")
@@ -72,6 +84,24 @@ class Item:
 
     @property
     def category(self) -> str:
+        """推导品类。
+
+        优先级：菜单分类名 > 商品名关键词。
+        只用商品名判断会误判，例如「纯牛奶(盒装)」曾因含「盒」字被当成套餐、
+        「心形薯饼8块」里的「派」类关键词也会串味。
+        """
+        # 1) 菜单分类名（更可靠；「小食甜品/其他」需再用商品名细分）
+        dessert_words = dict(CATEGORY_RULES).get("甜品", ())
+        for cname in self.categories:
+            if "小食甜品" in cname:
+                # 该分类同时含小食与甜品，用商品名区分（复用同一份甜品关键词，避免漏词）
+                if any(w in self.name for w in dessert_words):
+                    return "甜品"
+                return "小食"
+            for cat, words in CATEGORY_FROM_SECTION:
+                if any(w in cname for w in words):
+                    return cat
+        # 2) 商品名关键词
         for cat, words in CATEGORY_RULES:
             if any(w in self.name for w in words):
                 return cat
@@ -448,6 +478,135 @@ class MealPlanner:
                 it.original_price = orig
         return fixed
 
+    # ---------- 结构约束模式：按品类份数选最低价 ----------
+
+    # 品类 -> 结构槽位
+    SLOT_OF_CATEGORY = {
+        "汉堡": "main", "套餐": "main",        # 主食
+        "小食": "snack",                        # 小吃
+        "甜品": "dessert",                      # 甜品
+        "饮料": "drink",                        # 饮品
+    }
+    SLOT_LABEL = {"main": "主食", "snack": "小吃", "dessert": "甜品", "drink": "饮品"}
+
+    def calibrate_categories(self, store_code: str, be_type: int = 1,
+                             be_code: str | None = None, order_type: int | None = None,
+                             per_cat: int = 6) -> int:
+        """按品类分别校准最便宜的商品单价。
+
+        结构模式下每个品类都要出方案，若只校准整体最便宜的商品，
+        小食/甜品/饮品可能拿不到真实价，导致算出的"最低价"是假的最低价。
+        """
+        buckets: dict[str, list[Item]] = {}
+        for it in self.pool:
+            buckets.setdefault(it.category, []).append(it)
+
+        targets: list[Item] = []
+        for _cat, lst in buckets.items():
+            targets.extend(sorted(lst, key=lambda i: i.price)[:per_cat])
+
+        fixed = 0
+        for it in targets:
+            try:
+                res = self.client.calculate_price(
+                    store_code, [{"productCode": it.code, "quantity": 1}],
+                    be_type=be_type, be_code=be_code, order_type=order_type,
+                )
+            except McdMCPError:
+                continue
+            data = res.get("data") if isinstance(res, dict) else None
+            if not isinstance(data, dict):
+                continue
+            real = _to_float(data.get("productPrice")) / 100.0
+            orig = _to_float(data.get("originalPrice")) / 100.0
+            if real > 0 and abs(real - it.price) > 0.01:
+                it.price = real
+                fixed += 1
+            if orig > 0:
+                it.original_price = orig
+        return fixed
+
+    def structure_candidates(
+        self,
+        structure: dict[str, int],
+        budget: float,
+        avoid: Iterable[str] = (),
+        no_spicy: bool = False,
+        per_category: int = 5,
+        budget_slack: float = 1.15,
+        max_candidates: int = 24,
+    ) -> tuple[list[Plan], str]:
+        """按「品类 -> 份数」结构求解，返回候选组合（按估算价升序）。
+
+        structure 例：{"main": 1, "snack": 1, "dessert": 1, "drink": 1}
+
+        求最低价的关键：同一品类要 N 份时，最优解必然是取该品类最便宜的商品 ×N，
+        因此每类只需取最便宜的前几款作为候选，再跨品类做笛卡尔积。
+        估算价超预算的组合仍保留一定容差（优惠可能把真实价拉回预算内）。
+        """
+        import itertools
+
+        need = {k: int(v) for k, v in (structure or {}).items() if int(v or 0) > 0}
+        if not need:
+            return [], "没有指定任何品类份数"
+
+        pools: dict[str, list[Item]] = {k: [] for k in need}
+        for it in self.pool:
+            slot = self.SLOT_OF_CATEGORY.get(it.category)
+            if slot not in pools:
+                continue
+            if match_avoid(it.name, avoid):
+                continue
+            if any(w in it.name for w in NON_FOOD_WORDS):   # 贴纸/玩具等周边不参与配餐
+                continue
+            if no_spicy and is_spicy(it):
+                continue
+            pools[slot].append(it)
+
+        for slot, lst in pools.items():
+            if slot == "main":
+                # 主食优先用单点汉堡：套餐本身已含小吃/饮品，
+                # 若拿套餐当主食，用户额外要求的小吃/饮品就会重复。
+                singles = [i for i in lst if i.category == "汉堡"]
+                if len(singles) >= 3:
+                    lst = singles
+            lst.sort(key=lambda i: i.price)
+            pools[slot] = lst
+            if not lst:
+                return [], f"该门店没有可售的「{self.SLOT_LABEL[slot]}」类商品"
+
+        slots = list(need.keys())
+        choice_lists = [pools[s][:per_category] for s in slots]
+
+        est_combos: list[tuple[float, list[tuple[Item, int]]]] = []
+        for picks in itertools.product(*choice_lists):
+            items = [(it, need[s]) for s, it in zip(slots, picks)]
+            est = sum(it.price * q for it, q in items)
+            if est > budget * budget_slack:
+                continue
+            est_combos.append((est, items))
+
+        if not est_combos:
+            cheapest = sum((pools[s][0].price * need[s]) for s in slots)
+            return [], (f"按该结构的最低商品总价约 ¥{cheapest:.2f}，"
+                        f"已超出预算 ¥{budget:.0f}；请提高预算或减少份数")
+
+        est_combos.sort(key=lambda x: x[0])
+
+        plans: list[Plan] = []
+        for est, items in est_combos[:max_candidates]:
+            key = "|".join(f"{it.code}x{q}" for it, q in items)
+            plan = Plan(
+                key=key,
+                title="结构配齐",
+                reason="",
+                items=items,
+                subtotal=est,
+                per_capita=est / max(1, sum(need.values())),
+            )
+            plans.append(plan)
+        return plans, ""
+
     # ---------- 真实算价 ----------
 
     def verify(self, plan: Plan, store_code: str, be_type: int = 1,
@@ -565,7 +724,60 @@ def render(plans: list[Plan], people: int, budget: float, store_name: str,
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------- CLI
+def render_structure(plan: Plan, structure: dict[str, int], budget: float,
+                     store_name: str, source_note: str) -> str:
+    """渲染「按结构配齐、取最低价」的结果。"""
+    lines: list[str] = []
+    desc = "、".join(
+        f"{MealPlanner.SLOT_LABEL[k]} {v} 份" for k, v in structure.items() if v > 0
+    )
+    lines.append(f"预算 ¥{budget:.0f}，结构要求：{desc}，门店「{store_name}」")
+    lines.append("")
+
+    total = plan.total()
+    if plan.verified_total is None:
+        lines.append(f"（未能取得真实算价，以下为菜单价估算 ¥{plan.subtotal:.2f}）")
+    if total <= budget:
+        lines.append(f"✅ 符合该结构的**最低价组合**：实付 ¥{total:.2f}，预算内还余 ¥{budget - total:.2f}")
+    else:
+        lines.append(f"⚠️ 符合该结构的**最低价组合**仍需 ¥{total:.2f}，超出预算 ¥{total - budget:.2f}")
+    lines.append("")
+
+    for slot, label in MealPlanner.SLOT_LABEL.items():
+        if slot not in structure or structure[slot] <= 0:
+            continue
+        picked = [
+            (it, q) for it, q in plan.items
+            if MealPlanner.SLOT_OF_CATEGORY.get(it.category) == slot
+        ]
+        for it, q in picked:
+            lines.append(
+                f"- **{label} {q} 份**：{it.name}　¥{it.price:.2f}/份　小计 ¥{it.price * q:.2f}"
+            )
+    lines.append("")
+
+    breakdown = getattr(plan, "price_breakdown", None)
+    if breakdown:
+        parts = [f"商品 ¥{breakdown['product']:.2f}"]
+        if breakdown["delivery"]:
+            parts.append(f"配送 ¥{breakdown['delivery']:.2f}")
+        if breakdown["packing"]:
+            parts.append(f"打包 ¥{breakdown['packing']:.2f}")
+        if breakdown["discount"]:
+            parts.append(f"优惠 -¥{breakdown['discount']:.2f}")
+        lines.append("费用拆分：" + " + ".join(parts))
+    saved = plan.verified_saved
+    if saved and saved > 0:
+        lines.append(f"共节省：¥{saved:.2f}（相对原价）")
+    lines.append("")
+    lines.append("以上为该门店**当前可售、符合结构、总价最低**的组合；"
+                 "如需更便宜可减少份数或提高预算档位对比。")
+    lines.append("")
+    lines.append(source_note)
+    return "\n".join(lines)
+
+
+
 
 def _build_reasons(plans: list[Plan], people: int, budget: float) -> None:
     """给每个方案补上人话理由。"""
@@ -600,7 +812,14 @@ def main() -> int:
     ap.add_argument("--avoid", default="", help="忌口关键词，逗号分隔")
     ap.add_argument("--no-spicy", action="store_true", help="不吃辣")
     ap.add_argument("--no-drink", action="store_true", help="不需要饮料")
-    ap.add_argument("--dessert", action="store_true", help="想要甜品")
+    ap.add_argument("--want-dessert", action="store_true", help="想要甜品（默认模式偏好）")
+    # ---- 结构约束模式：用户指定各品类份数，求最低价组合 ----
+    ap.add_argument("--main", type=int, default=0, help="主食份数（结构模式）")
+    ap.add_argument("--snack", type=int, default=0, help="小吃份数（结构模式）")
+    ap.add_argument("--dessert", type=int, default=0, help="甜品份数（结构模式）")
+    ap.add_argument("--drink", type=int, default=0, help="饮品份数（结构模式）")
+    ap.add_argument("--per-person", action="store_true",
+                    help="结构份数按人数翻倍（默认份数是总份数）")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     args = ap.parse_args()
 
@@ -655,6 +874,64 @@ def main() -> int:
 
     # ---- 3. 生成候选 ----
     planner = MealPlanner(client, items)
+
+    # ===== 结构约束模式（用户指定各品类份数，求最低价）=====
+    structure = {
+        "main": args.main, "snack": args.snack,
+        "dessert": args.dessert, "drink": args.drink,
+    }
+    structure = {k: v for k, v in structure.items() if v > 0}
+    if structure:
+        if args.per_person:
+            structure = {k: v * max(1, args.people) for k, v in structure.items()}
+
+        fixed_cat = planner.calibrate_categories(
+            store_code, be_type=be_type, be_code=be_code, order_type=order_type, per_cat=6
+        )
+        if fixed_cat and not args.json:
+            print(f"（已按品类校准 {fixed_cat} 个商品的真实单价）\n")
+
+        cands, err = planner.structure_candidates(
+            structure, args.budget, avoid=avoid, no_spicy=args.no_spicy,
+        )
+        if err:
+            print(f"无法按该结构出方案：{err}", file=sys.stderr)
+            return 1
+
+        # 对估算最便宜的一批做真实算价，避免「估算最低」≠「实付最低」
+        verify_n = min(len(cands), 12)
+        for p in cands[:verify_n]:
+            planner.verify(p, store_code, be_type=be_type, be_code=be_code, order_type=order_type)
+            slots_total = max(1, sum(structure.values()))
+            p.per_capita = p.total() / slots_total
+
+        verified = [p for p in cands[:verify_n] if p.verified_total is not None]
+        within = [p for p in verified if p.total() <= args.budget]
+        # 预算内有解 -> 取实付最低；否则取最接近的
+        best = min(within, key=lambda p: p.total()) if within else (
+            min(verified, key=lambda p: p.total()) if verified else cands[0]
+        )
+        _build_reasons([best], sum(structure.values()), args.budget)
+
+        src_note = (
+            f"以上价格来自麦当劳 MCP 实时返回（门店 {store_code}，{len(items)} 个可售商品，"
+            f"已对 {verify_n} 个候选做真实算价），最终以下单页面为准。"
+        )
+        if args.json:
+            print(json.dumps({
+                "store": {"storeCode": store_code, "beCode": be_code, "name": store_name},
+                "budget": args.budget,
+                "structure": structure,
+                "mode": "structure",
+                "best": best.to_dict(),
+                "itemPoolSize": len(items),
+                "sourceNote": src_note,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(render_structure(best, structure, args.budget, store_name, src_note))
+        return 0
+
+    # ===== 默认模式：按预算生成 2～3 个策略不同的方案 =====
     fixed = planner.calibrate(
         store_code, be_type=be_type, be_code=be_code, order_type=order_type, limit=22
     )
@@ -662,7 +939,7 @@ def main() -> int:
         print(f"（已用真实算价校准 {fixed} 个商品的单价；菜单最低价与套餐实际成交价可能不一致）\n")
     plans = planner.generate(
         people=args.people, budget=args.budget, avoid=avoid,
-        no_spicy=args.no_spicy, want_drink=not args.no_drink, want_dessert=args.dessert,
+        no_spicy=args.no_spicy, want_drink=not args.no_drink, want_dessert=args.want_dessert,
         top_n=12,
     )
     if not plans:
