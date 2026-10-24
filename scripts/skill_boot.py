@@ -41,10 +41,31 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 用户目录：存 Token 与"仓库在这里"的注册信息（供 DSH 悬浮球插件反向找到本仓库）
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".maimen-budget-meal")
+REPO_REG = os.path.join(CONFIG_DIR, "repo.json")
 SERVER_PY = os.path.join(ROOT, "web", "server.py")
 SERVICE_NAME = "maimen-budget-meal"
 PORT_START = int(os.environ.get("PORT", "8808"))
 PORT_TRIES = 13
+
+
+def register_repo() -> None:
+    """把本仓库位置写入用户目录，供 DSH 悬浮球插件（dsh-mcd-float）找到它。
+
+    为什么需要：插件装在 DSH 的 profile 里，它不知道用户的仓库 clone 到哪去了。
+    只要本脚本跑过一次，插件就能读到这个文件并据此拉起服务。
+    """
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(REPO_REG, "w", encoding="utf-8") as f:
+            json.dump({
+                "root": ROOT,
+                "bootScript": os.path.join(ROOT, "scripts", "skill_boot.py"),
+                "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass  # 注册失败不影响启动
 
 
 def _health(port: int, timeout: float = 0.4) -> bool:
@@ -103,6 +124,8 @@ def main() -> int:
     ap.add_argument("--status", action="store_true", help="只探测状态，不启动")
     ap.add_argument("--timeout", type=float, default=30.0, help="等待就绪超时秒数")
     args = ap.parse_args()
+
+    register_repo()   # 无论启动还是探测，都把仓库位置登记一次
 
     port = find_running()
     started = False

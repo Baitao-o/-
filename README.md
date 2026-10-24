@@ -162,6 +162,12 @@ Token 只保存在本机用户目录，已加入 `.gitignore`；界面与日志�
 - **网页 + 命令行双入口**：双击 `start.cmd`（或 `python web/server.py`）即可打开零依赖网页界面，端口被占用会自动切换，与命令行共用同一套规划逻辑；
 - 详实记录见 `docs/USAGE.md`（使用说明）与 `docs/RUN_RECORD.md`（实跑证据）。
 
+### 配套工具：DSH 悬浮球（可选，非参赛主体）
+
+`dsh-plugin/dsh-mcd-float/` 是一个可选的 DSH 客户端插件：在 DSH 界面上放一个悬浮球，
+点一下直接打开点餐前端（服务没启动时它会自动拉起）。仅作为「与 DSH 客户端深度集成」的
+工程示例，**删掉它不影响作品运行**，详见 [其 README](dsh-plugin/dsh-mcd-float/README.md)。
+
 ## 7. 当前仓库状态
 
 - 本地桌面目录：`D:\桌面\WaytoAGI-Dine`；

@@ -1,0 +1,27 @@
+{
+  "name": "dsh-mcd-float",
+  "version": "0.1.0",
+  "description": "DSH 界面悬浮球：点一下直接打开「麦门省钱搭子」点餐前端（麦当劳 MCP 点餐助手）",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "widget",
+    "float",
+    "mcd",
+    "mcdonalds"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT"
+}
