@@ -174,7 +174,7 @@ python web/server.py
 网页与命令行**共用同一套** `src/meal_planner.py`，因此结果一致；
 接口为 `POST /api/plan`，结构份数为 0 时自动退回「默认模式」返回 2~3 个方案。
 
-> 截图占位：`![可视化界面](assets/web-ui.png)`
+> 实跑记录：三场景（结构 ¥35.00 / 默认 3 方案 / 预算不足 ¥41.00 配不齐）已实际运行并留存原始输出，见 [RUN_RECORD.md](RUN_RECORD.md)。
 
 ## 5. 对话式使用示例
 
