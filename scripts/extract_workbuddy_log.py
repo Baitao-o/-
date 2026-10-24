@@ -44,6 +44,30 @@ PHONE_PATTERN = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
 ID_PATTERN = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
 
 
+# 与「点餐作品开发」无关、且涉及凭据话题的环境配置对话，整轮跳过。
+# 这类内容放进参赛材料既跑题，也容易让评委误解。
+OPS_KEYWORDS = (
+    "Personal Access Token",
+    "PAT 方案",
+    "gh auth",
+    "gh 仍显示未登录",
+    "设备授权",
+    "凭据管理",
+    "token 发给我",
+    "轮询等待",
+    "免密",
+    "one-time code",
+    "GitHub 登录",
+)
+
+
+def is_ops_chatter(text: str) -> bool:
+    """判断这条消息是否属于环境配置/权限排障类闲聊。"""
+    if not text:
+        return False
+    return any(k in text for k in OPS_KEYWORDS)
+
+
 def contains_secret(text: str) -> bool:
     """判断一段文本里是否含真实凭据（用于整条跳过，而不是留脱敏痕迹）。"""
     if not text:
@@ -156,23 +180,36 @@ def main():
         # 提取用户指令 + 助手关键结论 + 工具调用统计
         n_user = n_assistant = 0
         tool_counter = {}
+        skipped_turns = 0
+        skip_turn = False
         for e in events:
             t = e.get("type")
             if t == "message":
                 role = e.get("role")
-                text = "".join(
+                raw_text = "".join(
                     b.get("text", "") for b in (e.get("content") or []) if isinstance(b, dict)
                 )
-                text = clean(text)
+                text = clean(raw_text)
                 if not text:
                     continue
                 if role == "user" and "system-reminder" not in text[:40]:
+                    # 整轮跳过：这条用户指令属于环境配置/权限排障 → 本轮及其回复都不输出
+                    if is_ops_chatter(raw_text):
+                        skip_turn = True
+                        skipped_turns += 1
+                        continue
+                    skip_turn = False
                     n_user += 1
                     lines.append(f"### 👤 用户指令 {n_user}")
                     lines.append("")
                     lines.append(f"> {text}")
                     lines.append("")
                 elif role == "assistant":
+                    if skip_turn:
+                        continue
+                    # 助手回复里若在讲账号授权/推送凭据等环境配置，也整条略过
+                    if is_ops_chatter(raw_text):
+                        continue
                     # 只保留有实质内容的结论（跳过纯过渡语）
                     if len(text) < 40:
                         continue
