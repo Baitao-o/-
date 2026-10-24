@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 本地临时探测文件（MCP 原始返回等，可能含个人信息）
+_*.json
+_*.txt
+*.log
+
+# 环境与凭据（MCP Token 只走环境变量）
+.env
+.env.*
+*.token
+secrets*
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
