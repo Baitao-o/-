@@ -380,6 +380,55 @@ class McdMCPClient:
         """服务器时间（判断活动周期、券有效期时用）。"""
         return self.call("now-time-info").get("data")
 
+    # ---------- 订单（本作品唯一会真实创建订单的能力，调用方必须先过演示模式/二次确认） ----------
+
+    def create_order(self, store_code: str, items: list[dict], take_way_code: str,
+                     be_type: int = 1, be_code: str | None = None, order_type: int = 1,
+                     address_id: str | None = None, remark: str | None = None,
+                     need_tableware: bool = False) -> dict:
+        """创建真实订单，返回 data（含 orderId / payId / payH5Url / orderDetail）。
+
+        参数来自 create-order 工具 schema（2026-10-24 实测）：
+        - takeWayCode：orderType=1（到店/得来速）必传，**必须取自 calculate-price
+          返回的 takeWayList[].code，严禁硬编码**；orderType=2 不传；
+        - beCode：得来速(5)/外送(2)/团餐(6) 必传，到店自取(1) 不传；
+        - items: [{"productCode": "xxx", "quantity": 1}]，与 calculate-price 的入参同构。
+        """
+        args: dict[str, Any] = {
+            "storeCode": store_code, "items": items,
+            "beType": be_type, "orderType": order_type,
+        }
+        if order_type == 1:
+            if not take_way_code:
+                raise McdMCPError("到店/得来速建单必须传 takeWayCode（来自 calculate-price 的 takeWayList）")
+            args["takeWayCode"] = take_way_code
+        if be_code and be_type != 1:
+            args["beCode"] = be_code
+        if address_id:
+            args["addressId"] = address_id
+        if remark:
+            args["remark"] = remark[:50]
+        if need_tableware:
+            args["needTableware"] = True
+        return (self.call("create-order", args).get("data") or {})
+
+    def cancel_order(self, order_id: str, cancel_reason_code: str = "1") -> dict:
+        """取消未支付订单，返回 data（含 cancelResult）。"""
+        if not order_id:
+            raise McdMCPError("取消订单必须传 orderId")
+        return (self.call("cancel-order", {
+            "orderId": str(order_id), "cancelReasonCode": str(cancel_reason_code),
+        }).get("data") or {})
+
+    def query_order(self, order_id: str) -> dict:
+        """查询订单真实状态，返回 data（含 orderStatus / status）。
+
+        支付结果只能靠它确认：status=10 待支付，60 已取消，其余以 orderStatus 文案为准。
+        """
+        if not order_id:
+            raise McdMCPError("查询订单必须传 orderId")
+        return (self.call("query-order", {"orderId": str(order_id)}).get("data") or {})
+
 
 # ---------- 自检入口 ----------
 

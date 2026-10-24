@@ -518,6 +518,225 @@ def api_wheel_settle(payload: dict) -> dict:
     }
 
 
+# ---------------------------------------------------------------- 下单与支付跳转
+#
+# ⚠️ 安全红线（高于功能）：
+#   1. /api/order/create 的 dryRun **默认 True**——前端/调用方不显式说"要真实建单"，
+#      后端绝不调 create-order，只返回 wouldCreate 预览；
+#   2. dryRun=false 必须同时带 confirmed=true，否则 400 拒绝（防前端 bug 或直连接口）；
+#   3. takeWayCode 必须来自本次 calculate-price 返回的 takeWayList，拒绝一切硬编码；
+#   4. 非食品（贴纸/周边）不能单独建单（官方 code 499 实测），建单前先校验正价食品；
+#   5. 不打印、不记录 orderId / payH5Url（log_message 只输出请求行，不含 body）。
+
+
+def _order_fen(v) -> float:
+    """MCP 金额单位是分，统一转成元。"""
+    return round((float(v or 0)) / 100.0, 2)
+
+
+def _order_ctx(payload: dict):
+    """解析并校验订单接口的公共入参。"""
+    store_code = (payload.get("storeCode") or "").strip()
+    if not store_code:
+        raise ValueError("缺少门店编码 storeCode")
+    try:
+        be_type = int(payload.get("beType") or 1)
+        order_type = int(payload.get("orderType") or 1)
+    except (TypeError, ValueError):
+        raise ValueError("beType / orderType 必须是整数")
+    if be_type not in BE_TYPE.values():
+        raise ValueError(f"不支持的 beType：{be_type}")
+    if order_type not in (1, 2):
+        raise ValueError(f"不支持的 orderType：{order_type}")
+    be_code = (payload.get("beCode") or "").strip() or None
+    items = []
+    for it in payload.get("items") or []:
+        code = str((it or {}).get("code") or (it or {}).get("productCode") or "").strip()
+        try:
+            qty = int((it or {}).get("quantity") or 1)
+        except (TypeError, ValueError):
+            qty = 0
+        if code and qty > 0:
+            items.append({"productCode": code, "quantity": qty})
+    if not items:
+        raise ValueError("没有有效的商品")
+    return store_code, be_type, order_type, be_code, items
+
+
+def _price_view(data: dict) -> dict:
+    """把 calculate-price 的 data 转成前端视图：金额分→元，并透传 takeWayList。"""
+    return {
+        "price": _order_fen(data.get("price")),
+        "originalPrice": _order_fen(data.get("originalPrice")),
+        "discount": _order_fen(data.get("discount")),
+        "productPrice": _order_fen(data.get("productPrice")),
+        "deliveryPrice": _order_fen(data.get("deliveryPrice")),
+        "packingPrice": _order_fen(data.get("packingPrice")),
+        "products": [
+            {
+                "code": p.get("productCode"),
+                "name": p.get("productName"),
+                "quantity": p.get("quantity"),
+                "subtotal": _order_fen(p.get("subtotal")),
+            }
+            for p in (data.get("productList") or [])
+        ],
+        "takeWayList": [
+            {"code": t.get("code"), "title": t.get("title"), "subtitle": t.get("subtitle")}
+            for t in (data.get("takeWayList") or [])
+        ],
+    }
+
+
+def _food_gate(store_code: str, be_type: int, order_type: int,
+               be_code: str | None, items: list[dict]):
+    """建单前置校验：订单里至少要有一个正价食品。
+
+    官方限制实测（code 499）：非食品（贴纸、周边）不能单独购买。
+    这里用菜单把商品 code 对回名称与价格，判断是否食品，只读不建单。
+    """
+    c = get_client()
+    menu = normalize_meals(
+        c.meals(store_code, be_type=be_type, be_code=be_code, order_type=order_type)
+    )
+    by_code = {it.code: it for it in menu}
+    for it in items:
+        m = by_code.get(it["productCode"])
+        if m and m.price > 0 and not any(w in m.name for w in NON_FOOD_WORDS):
+            return
+    raise ValueError(
+        "无法下单：订单里没有正价食品。非食品（贴纸/周边等）不能单独建单"
+        "（麦当劳官方限制：其他餐品金额需大于 0 元），请先加一个汉堡、饮料等食品。"
+    )
+
+
+def api_order_prepare(payload: dict) -> dict:
+    """只读预备接口：算价 + 返回 takeWayList（堂食/外带等），不建单。
+
+    前端先调它让用户选「堂食 / 外带」，再进真实订单确认弹窗。
+    """
+    store_code, be_type, order_type, be_code, items = _order_ctx(payload)
+    _food_gate(store_code, be_type, order_type, be_code, items)
+    c = get_client()
+    res = c.calculate_price(store_code, items, be_type=be_type,
+                            be_code=be_code, order_type=order_type)
+    data = res.get("data") if isinstance(res, dict) else None
+    if not isinstance(data, dict):
+        raise ValueError("算价返回结构异常")
+    view = _price_view(data)
+    return {
+        "ok": True,
+        "storeCode": store_code,
+        "items": items,
+        "beType": be_type,
+        "orderType": order_type,
+        **view,
+        "notice": "金额来自麦当劳 MCP calculate-price 实时计算；取餐方式必须从 takeWayList 中选择。",
+    }
+
+
+def api_order_create(payload: dict) -> dict:
+    """建单接口（含演示模式开关，dryRun 默认 True，绝不默认真实建单）。"""
+    dry_run = payload.get("dryRun", True)
+    if not isinstance(dry_run, bool):
+        dry_run = True  # 任何非布尔值都按演示处理，宁可误演示不可误下单
+    if not dry_run and payload.get("confirmed") is not True:
+        raise ValueError(
+            "真实建单被拒绝：dryRun=false 时必须同时传 confirmed=true"
+            "（防前端 bug 或绕过确认弹窗直接调接口）"
+        )
+
+    store_code, be_type, order_type, be_code, items = _order_ctx(payload)
+    _food_gate(store_code, be_type, order_type, be_code, items)
+
+    c = get_client()
+    res = c.calculate_price(store_code, items, be_type=be_type,
+                            be_code=be_code, order_type=order_type)
+    data = res.get("data") if isinstance(res, dict) else None
+    if not isinstance(data, dict):
+        raise ValueError("算价返回结构异常")
+    view = _price_view(data)
+
+    # takeWayCode 必须取自本次 calculate-price 的 takeWayList，禁止硬编码
+    take_way_code = (payload.get("takeWayCode") or "").strip()
+    if order_type == 1:
+        valid_codes = [t.get("code") for t in view["takeWayList"]]
+        if not take_way_code:
+            raise ValueError("缺少 takeWayCode（必须来自 calculate-price 返回的 takeWayList）")
+        if valid_codes and take_way_code not in valid_codes:
+            raise ValueError(
+                f"takeWayCode「{take_way_code}」不在该门店 takeWayList 中"
+                f"（可选：{'、'.join(filter(None, valid_codes))}），已拒绝建单"
+            )
+
+    remark = (payload.get("remark") or "").strip() or None
+    address_id = (payload.get("addressId") or "").strip() or None
+
+    if dry_run:
+        return {
+            "ok": True,
+            "dryRun": True,
+            "wouldCreate": {
+                "storeCode": store_code,
+                "items": items,
+                "takeWayCode": take_way_code or None,
+                "price": view["price"],
+                "originalPrice": view["originalPrice"],
+                "products": view["products"],
+            },
+            "notice": "演示模式：没有调用 create-order，没有产生真实订单，不占用库存。",
+        }
+
+    order = c.create_order(
+        store_code, items, take_way_code,
+        be_type=be_type, be_code=be_code, order_type=order_type,
+        address_id=address_id, remark=remark,
+    )
+    return {
+        "ok": True,
+        "dryRun": False,
+        "orderId": order.get("orderId"),
+        "payId": order.get("payId"),
+        "payH5Url": order.get("payH5Url"),
+        "orderDetail": order.get("orderDetail") or {},
+        "price": view["price"],
+        "products": view["products"],
+        "notice": "订单已创建（待支付）。付款页为麦当劳官方域名，本作品不经手任何款项。",
+    }
+
+
+def api_order_cancel(payload: dict) -> dict:
+    """取消未支付订单。"""
+    order_id = str(payload.get("orderId") or "").strip()
+    if not order_id:
+        raise ValueError("缺少 orderId")
+    reason = str(payload.get("cancelReasonCode") or "1")
+    data = get_client().cancel_order(order_id, reason)
+    ok = bool(data.get("cancelResult"))
+    return {
+        "ok": True,
+        "cancelResult": ok,
+        "orderId": order_id,
+        "message": ("订单已取消。" if ok
+                    else "取消请求已提交但未确认成功，请到麦当劳 App「待付款」里核实。"),
+    }
+
+
+def api_order_query(payload: dict) -> dict:
+    """查订单真实状态（只在用户主动点「我已支付」时调用一次，不做自动轮询）。"""
+    order_id = str(payload.get("orderId") or "").strip()
+    if not order_id:
+        raise ValueError("缺少 orderId")
+    data = get_client().query_order(order_id)
+    return {
+        "ok": True,
+        "orderId": order_id,
+        "orderStatus": data.get("orderStatus"),
+        "status": data.get("status"),
+        "storeName": data.get("storeName"),
+    }
+
+
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
@@ -602,6 +821,10 @@ class Handler(BaseHTTPRequestHandler):
             "/api/plan": api_plan,
             "/api/wheel/pool": api_wheel_pool,
             "/api/wheel/settle": api_wheel_settle,
+            "/api/order/prepare": api_order_prepare,
+            "/api/order/create": api_order_create,
+            "/api/order/cancel": api_order_cancel,
+            "/api/order/query": api_order_query,
             "/api/config": api_config_set,
             "/api/config/clear": lambda _payload: api_config_clear(),
         }
