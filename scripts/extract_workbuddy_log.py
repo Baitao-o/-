@@ -34,25 +34,40 @@ def ts(ms):
 # 脱敏规则：官方参赛声明明确要求「不包含真实 Token、密钥、账号凭证与他人个人信息」
 import re
 
-REDACT_RULES = [
-    # 长串字母数字（MCP Token / API Key / 密钥）
-    (re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9]{24,}(?![A-Za-z0-9])"), "<REDACTED_TOKEN>"),
-    # Bearer 鉴权头
-    (re.compile(r"[Bb]earer\s+[A-Za-z0-9\-_.]+"), "Bearer <REDACTED_TOKEN>"),
-    # 中国大陆手机号
-    (re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"), "<REDACTED_PHONE>"),
-    # 身份证号
-    (re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)"), "<REDACTED_ID>"),
-]
+# 麦当劳 MCP Token 形如 32 位字母数字串。
+# 注意**不能**误伤这两类：
+#   · `call_443b95ced3e94665805447ffb482c0bc` —— 工具调用 ID（call_ 前缀 + 32 位 hex）
+#   · uuid / traceId（带连字符或长度不同）
+TOKEN_PATTERN = re.compile(r"(?<!call_)(?<![A-Za-z0-9])[A-Za-z0-9]{32}(?![A-Za-z0-9])")
+BEARER_PATTERN = re.compile(r"[Bb]earer\s+[A-Za-z0-9\-_.]{16,}")
+PHONE_PATTERN = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
+ID_PATTERN = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
+
+
+def contains_secret(text: str) -> bool:
+    """判断一段文本里是否含真实凭据（用于整条跳过，而不是留脱敏痕迹）。"""
+    if not text:
+        return False
+    return bool(
+        TOKEN_PATTERN.search(text)
+        or BEARER_PATTERN.search(text)
+        or PHONE_PATTERN.search(text)
+        or ID_PATTERN.search(text)
+    )
 
 
 def redact(text: str) -> str:
-    """对文本做敏感信息脱敏。"""
+    """兜底脱敏（正常情况下含凭据的消息已被 contains_secret 整条跳过）。"""
     if not text:
         return ""
-    for pattern, repl in REDACT_RULES:
-        text = pattern.sub(repl, text)
+    text = TOKEN_PATTERN.sub("<REDACTED>", text)
+    text = BEARER_PATTERN.sub("Bearer <REDACTED>", text)
+    text = PHONE_PATTERN.sub("<REDACTED>", text)
+    text = ID_PATTERN.sub("<REDACTED>", text)
     return text
+
+
+
 
 
 def load_events(pattern):
@@ -86,9 +101,12 @@ def clean(text, limit=700):
             break
         text = text[:start] + text[end + len("</system-reminder>"):]
     text = text.strip()
+    # 含凭据的整条消息直接丢弃并说明原因 —— 保留脱敏占位符会暗示"这里曾有 Token"
+    if contains_secret(text):
+        return "（此处略去：原始对话中包含使用者的 MCP Token，为安全起见已整段移除）"
     if len(text) > limit:
         text = text[:limit].rstrip() + " …"
-    return redact(text)
+    return text
 
 
 def main():

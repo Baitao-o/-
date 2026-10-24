@@ -8,8 +8,8 @@
 ## 会话：`d-WorkWork-2026-10-24-13-33-04`
 
 - 会话文件：`5614e14a-7b7f-434b-aada-2b70b2a1e9c9.jsonl`
-- 时间范围：2026-10-24 13:33:07 ～ 2026-10-24 14:42:48
-- 事件数：369
+- 时间范围：2026-10-24 13:33:07 ～ 2026-10-24 17:12:14
+- 事件数：804
 
 ### 👤 用户指令 1
 
@@ -120,7 +120,7 @@ gh 提示需要登录才能操作。仓库是公开的，直接用 git 克隆即
 
 > <task-notification>
 <task-id>xwiDZn</task-id>
-<tool-use-id>call_<REDACTED_TOKEN></tool-use-id>
+<tool-use-id>call_f7903123a07f49cfb00e8afd</tool-use-id>
 <status>failed</status>
 <summary>Background command &quot;echo &quot;&quot; | &quot;/c/Program Files/GitHub CLI/gh.exe&quot; auth login --hostname github.com --git-protocol https --web 2&gt;&amp;1&quot; failed</summary>
 </task-notification>
@@ -136,7 +136,7 @@ gh 在等待你授权时与 GitHub 的连接被中断了（`unexpected EOF`，�
 
 > <task-notification>
 <task-id>Z1dTtF</task-id>
-<tool-use-id>call_<REDACTED_TOKEN></tool-use-id>
+<tool-use-id>call_be562f649c584115adde0482</tool-use-id>
 <status>failed</status>
 <summary>Background command &quot;echo &quot;&quot; | &quot;/c/Program Files/GitHub CLI/gh.exe&quot; auth login --hostname github.com --git-protocol https --web 2&gt;&amp;1&quot; failed</summary>
 </task-notification>
@@ -179,7 +179,7 @@ gh 正在后台轮询等待，这次只要它保持连接不断，你一授权�
 
 > <task-notification>
 <task-id>cC0mLe</task-id>
-<tool-use-id>call_<REDACTED_TOKEN></tool-use-id>
+<tool-use-id>call_78595890de7e4228a67911b0</tool-use-id>
 <status>completed</status>
 <summary>Background command &quot;echo &quot;&quot; | &quot;/c/Program Files/GitHub CLI/gh.exe&quot; auth login --hostname github.com --git-protocol https --web 2&gt;&amp;1&quot; completed</summary>
 </task-notification>
@@ -261,10 +261,6 @@ Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you n
 
 > <user_query>看完这个东西做个总结，然后在桌面上创建一个git仓库用来存放</user_query>
 
-**WorkBuddy**（2026-10-24 14:01:29）：
-
-503 Service temporarily unavailable (<REDACTED_TOKEN>/5614e14a-7b7f-434b-aada-2b70b2a1e9c9)
-
 ### 👤 用户指令 11
 
 > <user_query>请继续执行任务</user_query>
@@ -322,7 +318,7 @@ Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you n
 
 ### 👤 用户指令 12
 
-> <user_query><REDACTED_TOKEN>这是我的麦当劳MCP，你帮我完成配置流程</user_query>
+> （此处略去：原始对话中包含使用者的 MCP Token，为安全起见已整段移除）
 
 **WorkBuddy**（2026-10-24 14:12:21）：
 
@@ -333,7 +329,7 @@ Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you n
 - 连接器名称：`mcd-mcp`
 - 类型：`streamablehttp`
 - 地址：`https://mcp.mcd.cn`
-- 认证方式：`Bearer <REDACTED_TOKEN>`
+- 认证方式：`Bearer Token`
 - 配置文件：`C:\Users\BAI\.workbuddy\mcp.json`
 
 现在还需要你在 WorkBuddy 界面完成最后一步：
@@ -568,26 +564,184 @@ Concurrency limit exceeded for account, please retry later
 
 所以现在你既可以让 DSH 分担一部分活（比如跑测试、写文档、处理别的仓库），也可以继续让我推进麦当劳 Skill——只要我们各自在板上登记，就不会互相踩脚。要不要给 DSH 分点任务试试？
 
+### 👤 用户指令 22
+
+> <user_query>读 D:\DSH工作区\.agent-sync\WB-1-任务书.md
+，按里面要求写 docs/USAGE.md 并推送。这是 DSH 派的 WB-1。写完在共享板 post --agent workbuddy --kind done。</user_query>
+
+**WorkBuddy**（2026-10-24 15:14:09）：
+
+**WB-1 已完成并回报 DSH** ✅
+
+## 交付内容：`docs/USAGE.md`（commit `613cf91`，已推送 GitHub）
+
+按任务书要求的 8 个小节全部完成：
+
+1. **这是什么** — 一句话定位；
+2. **准备工作** — Python 3.8+、Token 获取步骤（open.mcd.cn/mcp）、Windows/macOS/Linux 三行环境变量命令；
+3. **快速开始** — git clone → 第一条命令 → 真实输出；
+4. **两种用法** — 默认模式 + 结构模式（重点写了三个技术亮点：菜单价≠成交价需算价校准、求最低价而非推荐、硬约束不可违反）；
+5. **对话式示例 ×2** — 含糊表达追问缺失字段 / 预算不足如实拒绝；
+6. **参数速查表** — 覆盖 `--help` 全部 17 个参数；
+7. **常见问题** — Token 报错、门店查不到、预算无解、外送到店价差等 5 条；
+8. **已知限制** — 如实写明算价校准、券未全量求解、非官方 API。
+
+## 三段真实终端输出（在绍兴上虞门店实跑）
+
+- **默认模式**（2人 ¥130）：三套方案，首选 ¥109.90，省 ¥13.10；
+- **结构模式**（¥100，主1+小1+甜1+饮1）：最低价组合实付 **¥35.00**，余 ¥65；
+- **预算不足**（¥20，主2+小2）：如实拒绝并告知最低需 **¥41**——这正好演示了“不硬凑”的卖点。
+
+## 合规检查
+
+- 全文无真实 Token（仅 `MCD_MCP_TOKEN …
+
+### 👤 用户指令 23
+
+> <user_query>读 D:\DSH工作区\.agent-sync\WB-3-任务书.md
+领 WB-3：实际跑 http://127.0.0.1:8808 的三个场景、留真实证据、同步 TEAM_PROPOSAL.md 的网页版内容。</user_query>
+
+**WorkBuddy**（2026-10-24 15:43:57）：
+
+**WB-3 已完成** ✅（commit `b424026` 已推送，共享板 claim→done 已闭环）
+
+## 任务 A：三场景实跑（全部通过，关键数字与预期一致）
+
+| # | 场景 | 预期 | 实跑结果 |
+|---|---|---|---|
+| 1 | 结构 1-1-1-1，预算 100 | 实付 ¥35.00 余 ¥65.00 | ✅ ¥35.00（牛肉堡 13.50 / 苹果片 7.00 / 灰焰圆筒 5.00 / 雪碧 9.50）|
+| 2 | 默认模式，预算 130 | 3 个方案卡片 | ✅ 返回 3 方案，每张带商品明细 |
+| 3 | 预算 20，配 2 主食 2 小吃 | 配不齐 ¥41.00 差 ¥21.00 | ✅ `feasible=false, minimumNeeded=41.0, gap=21.0` |
+
+三个场景都通过 `127.0.0.1:8808` 的同一后端 `/api/plan`（即网页页面提交时的真实通道）实跑，不是绕过网页的假验证。另外先跑了一遍 `test_consistency.py`：**6/6 通过**。
+
+## 证据落地（诚实第一）
+
+我的沙箱没有截屏/录屏能力，所以按任务书允许的**第三种方式**留证：新建 `docs/RUN_RECORD.md`，包含一致性测试 6/6 的完整原始输出 + 三场景的 API 原始 JSON（含请求命令、HTTP 状态、耗时），无任何修饰。
+
+一个如实说明的点：场景 2 的金额（¥58.80/¥89.00/¥59.30）与 WB-1 命令行那次（¥109.90/¥112.90 …
+
+### 👤 用户指令 24
+
+> <user_query>读 D:\DSH工作区\.agent-sync\WB-4-任务书.md
+领 WB-4：DSH 已实现 --want 想吃偏好（3c75835）和「想吃商品不存在」提示（0a0cc33），请同步 README、USAGE、RUN_RECORD、TEAM_PROPOSAL 四处文档。</user_query>
+
+**WorkBuddy**（2026-10-24 16:10:27）：
+
+现在更新 `RUN_RECORD.md`，补充 `want-preference` 的运行记录：
+
+**WorkBuddy**（2026-10-24 16:12:42）：
+
+**WB-4 已完成** ✅（commit `95bf0a9` 已推送，共享板 claim→done 已闭环）
+
+## 先实跑、再写文档（4 次真实运行）
+
+| 场景 | 命令 | 实跑结果 |
+|---|---|---|
+| ① `not_found` | `--want 龙虾` | ⚠️「本店菜单里没有「龙虾」相关商品，这个偏好无法满足（**不是预算问题**，不用再提高预算）」 |
+| ② `excluded` | `--want 牛肉 --avoid 牛肉` | ⚠️「有 1 个「牛肉」相关商品，但都被你的忌口排除了」 |
+| ③ `found` | `--no-spicy --want 鸡翅` | ℹ️「鸡翅本店有 2 个可选」，方案 A ¥69.50 含薄皮焦香V翅，标注「已满足想吃」 |
+| ④ 差额演示 | 结构模式 + `--want 鸡翅` | ¥37.50，备注「比同类最低方案（¥30.00）高 **¥7.50**」 |
+
+DSH 点名要核对的「不是预算问题」提示已实际出现。
+
+## 四处文档同步
+
+1. **`docs/USAGE.md`**：新增 **4.4 想吃的东西优先出现**（软/硬约束对比表、三档模糊匹配说明、④ 的真实输出）；参数表补 `--want` 行（并把 `--avoid` 注明硬约束）；FAQ 补三状态问答。
+2. **`docs/RUN_RECORD.md`**：追加「想吃偏好实跑记录」一节——三状态完整原始输出 + 差额演示 + 小结表。
+3. **`README.md`**：新增「6. 主要能力」节，「想吃优先」列为独立能力（含 …
+
+### 👤 用户指令 25
+
+> （此处略去：原始对话中包含使用者的 MCP Token，为安全起见已整段移除）
+
+### 👤 用户指令 26
+
+> <user_query>读 D:\DSH工作区\.agent-sync\WB-6-任务书.md
+领 WB-6：做美食转盘的视觉与动效，产出 web/wheel-theme.css + docs/design/wheel-ui.md + docs/design/wheel-demo-storyboard.md。不要改 web/index.html，由 DSH 接入你的样式包。</user_query>
+
+**WorkBuddy**（2026-10-24 16:27:11）：
+
+DSH 的转盘逻辑已就位（`43b25ff`），我基于 `web/index.html` 现状做增强包。先写样式包：
+
+**WorkBuddy**（2026-10-24 16:29:24）：
+
+**WB-6 已完成** ✅（commit `40cbd78` 已推送，共享板 claim→done 已闭环，全部标注“待 DSH 接入”）
+
+## 三个交付物
+
+**1. `web/wheel-theme.css` — 样式增强包（纯增量，零 JS 改动）**
+- 四盘区分色：主食 `#DA291C` 红 / 小吃 `#F5A623` 琥珀 / 甜品 `#E8563F` 珊瑚 / 饮品 `#1B7FA8` 汽水蓝，用在卡片顶条、指针、转盘外圈、「转」按钮四处呼应；
+- 质感：扇面顶部高光 + 底部暗角叠加（不动 JS 的 conic-gradient）、双层描边外圈、hub 旋钮化、指针改水滴钉；
+- 动效：idle 指针浮动 + hub 呼吸 → 转动中指针 ±11° 甩动 + hub 搏动 → 结果时价格 pop（回弹曲线）+ 金环扩散 + 10 点彩纸各一次 → 锁定绿色光晕脉冲；
+- 合规：grep 验证无 `body` / `*` / `.card` / `button` 全局选择器；`prefers-reduced-motion` 时关闭全部装饰动画。
+
+**2. `docs/design/wheel-ui.md`** — 配色变量表、质感做法、四态区分表、**15 条动效全部给了具体数值**（cubic-bezier / ms / 起止值）、移动端 ≤560px 尺寸对照表、自测 5 点清单。
+
+**3. `docs/design/wheel-demo-storyboard.md`** — 6+1 分镜约 32 秒，每镜有时长、鼠标动作、一句解说词；含 60 秒 …
+
+### 👤 用户指令 27
+
+> <user_query>读 D:\DSH工作区\.agent-sync\WB-7-任务书.md
+领 WB-7：只做路演 PPT，放 docs/pitch/，别改其他文件。</user_query>
+
+**WorkBuddy**（2026-10-24 16:47:54）：
+
+按技能流程执行。WB-7 规格已在任务书里完全确定（11 页骨架、配色、数据、署名），无需再向用户澄清，直接开工。先认领并搭工作目录：
+
+**WorkBuddy**（2026-10-24 16:49:43）：
+
+规范已读完（通用法则 + Slide/Box/Text/FAIcon 组件）。写叙事与设计文档：
+
+**WorkBuddy**（2026-10-24 16:52:30）：
+
+视觉检查提示右中部留白过大，补一张「真实算价示例」小卡平衡版面（数字用实测值）：
+
+**WorkBuddy**（2026-10-24 17:11:44）：
+
+敏感检查的命中是 PPTX 的 AIGC 生成标识元数据（合规要求保留），非真实凭据，误报确认。回报共享板并记录日志：
+
+**WorkBuddy**（2026-10-24 17:12:14）：
+
+**WB-7 已完成** ✅（commit `db8b45c` 已推送，共享板 claim→done 已闭环，只动了 `docs/pitch/`）
+
+## 交付物：`docs/pitch/麦门省钱搭子-路演.pptx`（11 页）
+
+严格按任务书骨架，覆盖评分六维度：
+
+| 页 | 内容 | 亮点 |
+|---|---|---|
+| 1 | 封面（红底 hero） | 巨型标题 + 三关键词黄带 + **真实算价示例卡 ¥35.00** |
+| 2 | 痛点 | 预算/口味/份量三方冲突图 + 三条痛点 |
+| 3 | 解决方案 | 左输入卡 → 右账单卡（¥35.00 明细 + “为什么是它”） |
+| 4 | 核心创新 | 三卡：结构求最低价 / 想吃优先 / 美食转盘 |
+| 5 | 技术架构 | 三入口 → 内核 → MCP（35 工具）→ calculate-price 流程图 |
+| 6 | **技术难点四条全写** | ¥28 标价实付 ¥52 / canWithOrder 16/109 陷阱 / 5900=¥59.00 单位坑 / 鸡翅匹配不到、牛肉误命中→三档匹配+弱字符黑名单 |
+| 7 | 真实证据（hero） | 三张巨型数字卡 **¥35.00 / ¥53.40 / ¥41.00** + 数据行（¥144.60 人均 36.15、¥69.50、109 商品 14 分类） |
+| 8 | 演示动线 | 四步 50 秒，每步带“看点” |
+| 9 | 应用价值 | 三类人群 + 扩展方向（明确标注“未实现不承诺”） |
+| 10 | AI 使用声明 | W …
+
 ### 工具调用统计
 
 | 工具 | 次数 |
 |---|---|
-| `Bash` | 43 |
+| `Bash` | 111 |
+| `Read` | 29 |
+| `Write` | 27 |
+| `Edit` | 27 |
 | `TaskUpdate` | 14 |
-| `Write` | 7 |
+| `present_files` | 10 |
 | `TaskCreate` | 7 |
 | `TaskOutput` | 6 |
-| `Read` | 5 |
 | `WebFetch` | 4 |
-| `present_files` | 4 |
-| `Edit` | 3 |
+| `Skill` | 4 |
+| `Glob` | 4 |
+| `Grep` | 4 |
 | `PowerShell` | 3 |
-| `Skill` | 3 |
 | `TaskGet` | 3 |
-| `Glob` | 3 |
 | `ToolSearch` | 2 |
 | `DeferExecuteTool` | 2 |
-| `Grep` | 2 |
 | `AskUserQuestion` | 1 |
 
 ---
@@ -727,6 +881,6 @@ PowerShell 下跑通了，模型回复了 `TOKLENS_OK`。再按你原始命令�
 
 ---
 
-**统计口径**：上述记录共包含 138 次工具调用，全部来自 WorkBuddy 本地日志，未人工编造。
+**统计口径**：上述记录共包含 284 次工具调用，全部来自 WorkBuddy 本地日志，未人工编造。
 
 **AI 工具使用说明**：本作品的规则梳理、文档框架与代码初版由 WorkBuddy 与 DeepSeek Harness 两个 AI 编码智能体协作完成；技术实现（MCP 客户端、组合规划器）由 DeepSeek Harness 编写并实测，展示材料由 WorkBuddy 制作。
