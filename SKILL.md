@@ -262,6 +262,55 @@ python src/meal_planner.py --budget 100 --main 1 --snack 1 --dessert 1 --drink 1
 
 使用已确认数据计算，并明确标注待确认字段；不把估算结果写成最终成交价。
 
+## 可视化界面（网页版）
+
+命令行之外，本作品提供零依赖的本地网页界面，适合演示、录屏与真实使用记录。
+
+### 启动
+
+```bash
+python web/server.py
+# 浏览器打开 http://127.0.0.1:8808
+
+# 可选环境变量
+# PORT=8808          端口
+# HOST=127.0.0.1     监听地址
+# OPEN_BROWSER=0     不自动打开浏览器
+```
+
+只依赖 Python 标准库（`http.server`），不需要装 Flask / FastAPI。
+
+### 界面能做什么
+
+- 输入预算、人数、取餐方式（到店自取 / 麦乐送）、城市与位置关键词；
+- 用步进器选择结构：主食 / 小吃 / 甜品 / 饮品 各几份（0 表示不要）；
+- 可选「每人一份」（份数按人数翻倍）、「不吃辣」、忌口关键词；
+- 结果页展示：门店信息、按品类分组的明细、实付总价、预算剩余进度条、费用拆分。
+
+### 接口约定
+
+`POST /api/plan`：
+
+```json
+{"budget":100,"people":2,"mode":"pickup","city":"绍兴","keyword":"上虞",
+ "main":1,"snack":1,"dessert":1,"drink":1,
+ "avoid":"","noSpicy":false,"perPerson":false}
+```
+
+- 结构份数 > 0 → 返回 `mode:"structure"` 与 `best`（该结构最低价组合）；
+- 结构全为 0 → 返回 `mode:"budget"` 与 `plans`（2~3 个策略不同的方案）；
+- 失败返回 `{"ok":false,"error":"..."}`，HTTP 400。
+
+后端与命令行**共用同一份** `src/meal_planner.py`，不存在"网页版另写一套逻辑"的问题；
+改算法时两端同时生效。
+
+### 冒烟测试
+
+```bash
+python web/server.py          # 另开一个终端
+python web/test_api.py        # 覆盖结构模式 ×2 + 预算模式 ×1
+```
+
 ## 质量检查
 
 输出前检查：

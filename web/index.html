@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麦门省钱搭子 · 按结构出最低价</title>
+<style>
+  :root{
+    --red:#DA291C; --red-dark:#b31f14; --yellow:#FFC72C; --yellow-soft:#FFF4CC;
+    --ink:#1a1a1a; --muted:#6b7280; --line:#e8e8ec; --bg:#f6f6f8; --card:#ffffff;
+    --green:#0f9d58; --amber:#c77700;
+    --radius:16px; --shadow:0 2px 8px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.6; -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+
+  /* ---------- 头部 ---------- */
+  header{text-align:center;padding:20px 0 28px}
+  .logo{
+    display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:600;
+    color:var(--red);background:var(--yellow-soft);padding:6px 14px;border-radius:999px;
+    letter-spacing:.4px;
+  }
+  h1{font-size:30px;font-weight:800;margin:14px 0 8px;letter-spacing:-.5px}
+  h1 .hl{color:var(--red)}
+  .sub{color:var(--muted);font-size:14px;max-width:520px;margin:0 auto}
+
+  /* ---------- 卡片 ---------- */
+  .card{
+    background:var(--card);border-radius:var(--radius);padding:22px;
+    box-shadow:var(--shadow);border:1px solid var(--line);margin-bottom:18px;
+  }
+  .card h2{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:4px;height:15px;border-radius:2px;background:var(--red)}
+
+  /* ---------- 表单 ---------- */
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .field{flex:1 1 180px;min-width:0}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+  input[type=number],input[type=text]{
+    width:100%;padding:11px 13px;font-size:15px;border:1.5px solid var(--line);
+    border-radius:10px;background:#fbfbfc;color:var(--ink);transition:.15s;font-family:inherit;
+  }
+  input:focus{outline:none;border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(218,41,28,.08)}
+  .budget-input{font-size:22px !important;font-weight:800;letter-spacing:-.5px}
+
+  /* 分段控件 */
+  .seg{display:flex;background:#f0f0f4;border-radius:10px;padding:3px;gap:2px}
+  .seg button{
+    flex:1;padding:9px 8px;border:none;background:transparent;border-radius:8px;
+    font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s;font-family:inherit;
+  }
+  .seg button.on{background:#fff;color:var(--red);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+  /* 结构步进器 */
+  .struct-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
+  .stp{
+    border:1.5px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;
+    background:#fbfbfc;transition:.15s;
+  }
+  .stp.active{border-color:var(--red);background:var(--yellow-soft)}
+  .stp .ico{font-size:22px;line-height:1.2}
+  .stp .nm{font-size:12px;font-weight:600;color:var(--muted);margin:2px 0 8px}
+  .stp.active .nm{color:var(--red-dark)}
+  .ctrl{display:flex;align-items:center;justify-content:center;gap:6px}
+  .ctrl button{
+    width:26px;height:26px;border-radius:8px;border:1.5px solid var(--line);background:#fff;
+    font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;line-height:1;
+    display:flex;align-items:center;justify-content:center;transition:.12s;font-family:inherit;
+  }
+  .ctrl button:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+  .ctrl button:disabled{opacity:.35;cursor:not-allowed}
+  .ctrl .val{font-size:17px;font-weight:800;min-width:20px;font-variant-numeric:tabular-nums}
+
+  /* 复选 */
+  .checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:4px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+  .chk input{width:16px;height:16px;accent-color:var(--red);cursor:pointer}
+
+  /* 主按钮 */
+  .submit{
+    width:100%;padding:15px;margin-top:20px;border:none;border-radius:12px;
+    background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;
+    font-size:16px;font-weight:700;cursor:pointer;transition:.18s;font-family:inherit;
+    box-shadow:0 4px 14px rgba(218,41,28,.28);display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(218,41,28,.34)}
+  .submit:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+  /* ---------- 状态 ---------- */
+  .status{display:none;padding:16px;border-radius:12px;font-size:14px;margin-bottom:18px}
+  .status.show{display:flex;align-items:center;gap:12px}
+  .status.loading{background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .status.error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+  .spin{
+    width:18px;height:18px;border:2.5px solid var(--line);border-top-color:var(--red);
+    border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ---------- 结果 ---------- */
+  .result{display:none}
+  .result.show{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .store-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding-bottom:14px;border-bottom:1px dashed var(--line);margin-bottom:16px;
+  }
+  .store-head .nm{font-size:16px;font-weight:700}
+  .store-head .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .badge{
+    font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0;
+  }
+  .badge.ok{background:#e8f5e9;color:var(--green)}
+  .badge.warn{background:#fff7ed;color:var(--amber)}
+
+  /* 结构行 */
+  .slot-row{
+    display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f2f2f5;
+  }
+  .slot-row:last-of-type{border-bottom:none}
+  .slot-tag{
+    flex-shrink:0;width:60px;font-size:11px;font-weight:700;color:var(--red);
+    background:var(--yellow-soft);padding:4px 0;border-radius:7px;text-align:center;
+  }
+  .slot-info{flex:1;min-width:0}
+  .slot-info .n{font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot-info .q{font-size:12px;color:var(--muted)}
+  .slot-price{text-align:right;flex-shrink:0}
+  .slot-price .p{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .slot-price .u{font-size:11px;color:var(--muted)}
+
+  /* 合计 */
+  .total-box{
+    background:linear-gradient(135deg,#fff8e6,#fffdf5);border:1.5px solid #ffe9a8;
+    border-radius:12px;padding:16px;margin-top:16px;
+  }
+  .total-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .total-line .lb{font-size:13px;font-weight:600;color:var(--muted)}
+  .total-line .big{font-size:30px;font-weight:800;color:var(--red);letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .sub-line{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:8px;gap:10px}
+  .sub-line b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+  /* 预算进度条 */
+  .bar{height:7px;background:#eee;border-radius:999px;overflow:hidden;margin-top:14px}
+  .bar span{display:block;height:100%;border-radius:999px;transition:width .5s ease}
+  .bar.ok span{background:linear-gradient(90deg,#34c759,#0f9d58)}
+  .bar.over span{background:linear-gradient(90deg,#f59e0b,#da291c)}
+  .bar-note{font-size:12px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between}
+
+  .breakdown{
+    margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);
+    font-size:13px;color:var(--muted);
+  }
+  .breakdown b{color:var(--ink)}
+  .notice{font-size:11.5px;color:#9ca3af;margin-top:16px;line-height:1.6}
+
+  /* 多方案（预算模式） */
+  .plan-card{
+    border:1.5px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;background:#fbfbfc;
+  }
+  .plan-card:first-of-type{border-color:var(--yellow);background:#fffdf7}
+  .plan-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .plan-title .t{font-size:14px;font-weight:700}
+  .plan-title .amt{font-size:19px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums}
+  .plan-items{font-size:13px;color:var(--muted);line-height:1.9}
+  .plan-items div{display:flex;justify-content:space-between;gap:10px}
+  .plan-items span:last-child{font-variant-numeric:tabular-nums;color:var(--ink)}
+
+  /* 免责 */
+  footer{text-align:center;font-size:11.5px;color:#9ca3af;margin-top:28px;line-height:1.8}
+
+  @media(max-width:640px){
+    h1{font-size:24px}
+    .wrap{padding:16px 12px 48px}
+    .card{padding:16px;border-radius:14px}
+    .struct-grid{grid-template-columns:repeat(2,1fr)}
+    .total-line .big{font-size:26px}
+    .row{gap:10px}
+    .field{flex:1 1 100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">🍔 麦当劳 MCP · 用餐赛道</div>
+    <h1>麦门<span class="hl">省钱搭子</span></h1>
+    <p class="sub">给一个预算，再定下主食、小吃、甜品、饮品各要几份 —— 它去真实菜单里挑出<strong>这个结构下最便宜</strong>的组合。</p>
+  </header>
+
+  <!-- 表单 -->
+  <div class="card">
+    <h2>告诉我你的需求</h2>
+
+    <div class="row">
+      <div class="field">
+        <label>预算（元）</label>
+        <input class="budget-input" type="number" id="budget" value="100" min="1" step="5">
+      </div>
+      <div class="field">
+        <label>用餐人数</label>
+        <input type="number" id="people" value="2" min="1" max="20">
+      </div>
+      <div class="field">
+        <label>取餐方式</label>
+        <div class="seg" id="modeSeg">
+          <button class="on" data-mode="pickup">到店自取</button>
+          <button data-mode="delivery">麦乐送</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px" id="storeRow">
+      <div class="field">
+        <label>城市</label>
+        <input type="text" id="city" value="绍兴" placeholder="如：绍兴">
+      </div>
+      <div class="field">
+        <label>位置关键词</label>
+        <input type="text" id="keyword" value="上虞" placeholder="如：上虞 / 国贸">
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">
+        餐品结构（各要几份，0 表示不要）
+      </label>
+      <div class="struct-grid" id="structGrid">
+        <div class="stp active" data-key="main">
+          <div class="ico">🍔</div><div class="nm">主食</div>
+          <div class="ctrl"><button data-d="-1" disabled>−</button><span class="val">1</span><button data-d="1">+</button></div>
+        </div>
+        <div class="stp active" data-key="snack">
+          <div class="ico">🍟</div><div class="nm">小吃</div>
+          <div class="ctrl"><button data-d="-1" disabled>−</button><span class="val">1</span><button data-d="1">+</button></div>
+        </div>
+        <div class="stp active" data-key="dessert">
+          <div class="ico">🍦</div><div class="nm">甜品</div>
+          <div class="ctrl"><button data-d="-1" disabled>−</button><span class="val">1</span><button data-d="1">+</button></div>
+        </div>
+        <div class="stp active" data-key="drink">
+          <div class="ico">🥤</div><div class="nm">饮品</div>
+          <div class="ctrl"><button data-d="-1" disabled>−</button><span class="val">1</span><button data-d="1">+</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <div class="field">
+        <label>忌口（逗号分隔，可留空）</label>
+        <input type="text" id="avoid" placeholder="如：牛肉,香菜">
+      </div>
+      <div class="field" style="flex:0 0 auto;align-self:flex-end;padding-bottom:11px">
+        <div class="checks">
+          <label class="chk"><input type="checkbox" id="perPerson"> 每人一份</label>
+          <label class="chk"><input type="checkbox" id="noSpicy"> 不吃辣</label>
+        </div>
+      </div>
+    </div>
+
+    <button class="submit" id="go"><span>🍔</span> 给我这个结构的最低价</button>
+  </div>
+
+  <!-- 状态 -->
+  <div class="status" id="status"></div>
+
+  <!-- 结果 -->
+  <div class="result" id="result"></div>
+
+  <footer>
+    价格与可售状态来自麦当劳 MCP 实时返回，最终以下单页面为准。<br>
+    本作品为赛事参赛作品，非麦当劳官方产品。MCP Token 仅存于本地环境变量，不写入页面与仓库。
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.prototype.slice.call(document.querySelectorAll(s));
+
+  const state = {
+    mode: "pickup",
+    struct: { main: 1, snack: 1, dessert: 1, drink: 1 },
+  };
+
+  const SLOT_ORDER = ["main", "snack", "dessert", "drink"];
+  const SLOT_ICON = { main: "🍔", snack: "🍟", dessert: "🍦", drink: "🥤", other: "🛍️" };
+
+  // ---------- 取餐方式切换 ----------
+  $$("#modeSeg button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      $$("#modeSeg button").forEach(function(b){ b.classList.remove("on"); });
+      btn.classList.add("on");
+      state.mode = btn.dataset.mode;
+      $("#storeRow").style.display = state.mode === "pickup" ? "flex" : "none";
+    });
+  });
+
+  // ---------- 结构步进器 ----------
+  $$("#structGrid .stp").forEach(function(box){
+    const key = box.dataset.key;
+    const valEl = box.querySelector(".val");
+    const minus = box.querySelector('[data-d="-1"]');
+    const plus = box.querySelector('[data-d="1"]');
+
+    function render(){
+      const v = state.struct[key];
+      valEl.textContent = v;
+      minus.disabled = v <= 0;
+      box.classList.toggle("active", v > 0);
+    }
+    minus.addEventListener("click", function(){
+      state.struct[key] = Math.max(0, state.struct[key] - 1); render();
+    });
+    plus.addEventListener("click", function(){
+      state.struct[key] = Math.min(9, state.struct[key] + 1); render();
+    });
+    render();
+  });
+
+  // ---------- UI 状态 ----------
+  function setStatus(kind, text){
+    const el = $("#status");
+    if (!kind){
+      el.className = "status"; el.innerHTML = ""; return;
+    }
+    el.className = "status show " + kind;
+    el.innerHTML = kind === "loading"
+      ? '<div class="spin"></div><div>' + text + '</div>'
+      : '<div>⚠️</div><div>' + text + '</div>';
+  }
+
+  function money(n){
+    if (n === null || n === undefined) return "—";
+    return "¥" + Number(n).toFixed(2);
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  // ---------- 渲染：结构模式 ----------
+  function renderStructure(data){
+    const best = data.best;
+    const budget = data.request.budget;
+    const total = best.verifiedTotal !== null ? best.verifiedTotal : best.subtotal;
+    const used = Math.min(100, (total / budget) * 100);
+    const ok = data.feasible;
+
+    const grouped = {};
+    (best.items || []).forEach(function(it){
+      const slot = it.slot || "other";
+      (grouped[slot] = grouped[slot] || []).push(it);
+    });
+
+    let rows = "";
+    SLOT_ORDER.concat(["other"]).forEach(function(slot){
+      (grouped[slot] || []).forEach(function(it){
+        rows += '<div class="slot-row">'
+          + '<div class="slot-tag">' + SLOT_ICON[slot] + " " + esc(it.slotLabel) + " " + it.quantity + "份</div>"
+          + '<div class="slot-info"><div class="n">' + esc(it.name) + '</div>'
+          + '<div class="q">' + esc(it.category) + " · 单价 " + money(it.unitPrice) + (it.quantity > 1 ? " × " + it.quantity : "") + '</div></div>'
+          + '<div class="slot-price"><div class="p">' + money(it.subtotal) + '</div><div class="u">小计</div></div>'
+          + '</div>';
+      });
+    });
+
+    let breakdownHtml = "";
+    if (best.breakdown){
+      const b = best.breakdown, parts = ['商品 ' + money(b.product)];
+      if (b.delivery) parts.push('配送 ' + money(b.delivery));
+      if (b.packing) parts.push('打包 ' + money(b.packing));
+      if (b.discount) parts.push('优惠 −' + money(b.discount));
+      breakdownHtml = '<div class="breakdown">费用拆分：<b>' + parts.join(" + ") + '</b></div>';
+    }
+
+    const remainTxt = ok
+      ? "预算内还余 " + money(data.remaining)
+      : "超出预算 " + money(-data.remaining);
+
+    $("#result").innerHTML =
+      '<div class="card">'
+      + '<div class="store-head">'
+      +   '<div><div class="nm">' + esc(data.store.name) + '</div>'
+      +     '<div class="meta">' + esc(data.request.mode === "pickup" ? "到店自取" : "麦乐送")
+      +     ' · 门店 ' + esc(data.store.storeCode)
+      +     (data.store.businessStatus === false ? ' · <span style="color:#c77700">当前非营业时段</span>' : "")
+      +     ' · ' + data.itemPoolSize + ' 个可售商品</div></div>'
+      +   '<div class="badge ' + (ok ? "ok" : "warn") + '">' + (ok ? "✓ 预算内" : "⚠ 超预算") + '</div>'
+      + '</div>'
+      + rows
+      + '<div class="total-box">'
+      +   '<div class="total-line"><span class="lb">' + (ok ? "该结构最低价 · 实付" : "该结构最低价 · 仍需") + '</span>'
+      +     '<span class="big">' + money(total) + '</span></div>'
+      +   '<div class="bar ' + (ok ? "ok" : "over") + '"><span style="width:' + used + '%"></span></div>'
+      +   '<div class="bar-note"><span>预算 ' + money(budget) + '</span><span>' + remainTxt + '</span></div>'
+      +   breakdownHtml
+      + '</div>'
+      + (best.reason ? '<div class="breakdown" style="border-top:none;padding-top:10px">' + esc(best.reason) + '</div>' : '')
+      + '<div class="notice">' + esc(data.notice) + '</div>'
+      + '</div>';
+    $("#result").classList.add("show");
+  }
+
+  // ---------- 渲染：预算模式（多方案） ----------
+  function renderBudget(data){
+    let html = '<div class="card">'
+      + '<div class="store-head"><div><div class="nm">' + esc(data.store.name) + '</div>'
+      + '<div class="meta">' + esc(data.request.mode === "pickup" ? "到店自取" : "麦乐送")
+      + ' · 门店 ' + esc(data.store.storeCode) + ' · ' + data.itemPoolSize + ' 个可售商品</div></div>'
+      + '<div class="badge ' + (data.feasible ? "ok" : "warn") + '">'
+      + (data.feasible ? "✓ 预算内" : "⚠ 超预算") + '</div></div>';
+
+    data.plans.forEach(function(p, i){
+      const total = p.verifiedTotal !== null ? p.verifiedTotal : p.subtotal;
+      let items = "";
+      (p.items || []).forEach(function(it){
+        items += "<div><span>" + esc(it.name) + (it.quantity > 1 ? " × " + it.quantity : "")
+              + "</span><span>" + money(it.unitPrice * it.quantity) + "</span></div>";
+      });
+      html += '<div class="plan-card">'
+        + '<div class="plan-title"><span class="t">方案 ' + "ABC"[i] + (p.title ? " · " + esc(p.title) : "") + '</span>'
+        + '<span class="amt">' + money(total) + '</span></div>'
+        + '<div class="plan-items">' + items + '</div>'
+        + (p.reason ? '<div class="breakdown" style="border-top:none;margin-top:10px;padding-top:0">' + esc(p.reason) + '</div>' : '')
+        + '</div>';
+    });
+
+    html += '<div class="notice">' + esc(data.notice) + '</div></div>';
+    $("#result").innerHTML = html;
+    $("#result").classList.add("show");
+  }
+
+  // ---------- 提交 ----------
+  async function run(){
+    const budget = Number($("#budget").value || 0);
+    if (!(budget > 0)) { setStatus("error", "请填写大于 0 的预算"); return; }
+
+    const payload = {
+      budget: budget,
+      people: Number($("#people").value || 1),
+      mode: state.mode,
+      city: $("#city").value.trim(),
+      keyword: $("#keyword").value.trim(),
+      avoid: $("#avoid").value.trim(),
+      noSpicy: $("#noSpicy").checked,
+      perPerson: $("#perPerson").checked,
+      main: state.struct.main,
+      snack: state.struct.snack,
+      dessert: state.struct.dessert,
+      drink: state.struct.drink,
+    };
+
+    const hasStruct = payload.main + payload.snack + payload.dessert + payload.drink > 0;
+
+    $("#go").disabled = true;
+    $("#result").classList.remove("show");
+    setStatus("loading", hasStruct
+      ? "正在查真实门店与菜单，并对候选做真实算价…（约 15~40 秒）"
+      : "正在查门店与菜单…（约 15~40 秒）");
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, 90000);
+
+    try {
+      const res = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || ("请求失败 " + res.status));
+
+      setStatus(null);
+      if (data.mode === "structure") renderStructure(data);
+      else renderBudget(data);
+    } catch (err) {
+      if (err.name === "AbortError") setStatus("error", "请求超时（90 秒）。请稍后重试，或换成到店自取。");
+      else setStatus("error", err.message || String(err));
+    } finally {
+      clearTimeout(timer);
+      $("#go").disabled = false;
+    }
+  }
+
+  $("#go").addEventListener("click", run);
+  ["#budget", "#people", "#city", "#keyword", "#avoid"].forEach(function(sel){
+    var el = $(sel);
+    if (el) el.addEventListener("keydown", function(e){ if (e.key === "Enter") run(); });
+  });
+
+  $("#storeRow").style.display = "flex";
+})();
+</script>
+</body>
+</html>
