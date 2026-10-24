@@ -33,6 +33,7 @@ from meal_planner import (  # noqa: E402
     NON_FOOD_WORDS,
     MealPlanner,
     _build_reasons,
+    match_want,
     normalize_meals,
 )
 
@@ -110,6 +111,7 @@ def api_plan(payload: dict) -> dict:
     city = (payload.get("city") or "").strip()
     keyword = (payload.get("keyword") or "").strip()
     avoid = [w.strip() for w in str(payload.get("avoid") or "").split(",") if w.strip()]
+    want = [w.strip() for w in str(payload.get("want") or "").split(",") if w.strip()]
     no_spicy = bool(payload.get("noSpicy"))
 
     structure = {}
@@ -151,7 +153,7 @@ def api_plan(payload: dict) -> dict:
         "request": {
             "budget": budget, "people": people, "mode": mode,
             "city": city, "keyword": keyword, "avoid": avoid,
-            "noSpicy": no_spicy, "structure": structure,
+            "noSpicy": no_spicy, "structure": structure, "want": want,
         },
         "itemPoolSize": len(items),
     }
@@ -162,7 +164,7 @@ def api_plan(payload: dict) -> dict:
             store_code, be_type=be_type, be_code=be_code, order_type=order_type, per_cat=6
         )
         cands, err = planner.structure_candidates(
-            structure, budget, avoid=avoid, no_spicy=no_spicy
+            structure, budget, avoid=avoid, no_spicy=no_spicy, want=want
         )
         if err:
             # 「配不齐」不是服务器错误，而是合法的业务结论。
@@ -189,7 +191,25 @@ def api_plan(payload: dict) -> dict:
 
         verified = [p for p in cands[:verify_n] if p.verified_total is not None]
         within = [p for p in verified if p.total() <= budget]
-        if within:
+
+        def _want_hits(pl):
+            return sum(len(match_want(it, want)) for it, _ in pl.items)
+
+        # 想吃优先：预算内命中「想吃」的方案优先（即使更贵），并说明价差
+        best = None
+        if within and want:
+            preferred = [p for p in within if _want_hits(p) > 0]
+            if preferred:
+                best = max(preferred, key=lambda p: (_want_hits(p), -p.total()))
+                cheapest_any = min(within, key=lambda p: p.total())
+                if best.total() > cheapest_any.total() + 0.01:
+                    best.notes.append(
+                        f"为满足「{'、'.join(want)}」，实付比同类最低方案"
+                        f"（¥{cheapest_any.total():.2f}）高 ¥{best.total() - cheapest_any.total():.2f}"
+                    )
+        if best is not None:
+            feasible = True
+        elif within:
             best = min(within, key=lambda p: p.total())
             feasible = True
         elif verified:
@@ -199,7 +219,7 @@ def api_plan(payload: dict) -> dict:
             best = cands[0]
             feasible = False
 
-        _build_reasons([best], sum(structure.values()), budget)
+        _build_reasons([best], sum(structure.values()), budget, want=want)
         result.update({
             "mode": "structure",
             "feasible": feasible,
@@ -215,7 +235,7 @@ def api_plan(payload: dict) -> dict:
         )
         plans = planner.generate(
             people=people, budget=budget, avoid=avoid, no_spicy=no_spicy,
-            want_drink=True, want_dessert=False, top_n=12,
+            want_drink=True, want_dessert=False, want=want, top_n=12,
         )
         if not plans:
             raise ValueError("没有找到可行方案，试试提高预算或放宽限制")
@@ -245,7 +265,7 @@ def api_plan(payload: dict) -> dict:
             selected = over[:2]
             feasible = False
 
-        _build_reasons(selected, people, budget)
+        _build_reasons(selected, people, budget, want=want)
         result.update({
             "mode": "budget",
             "feasible": feasible,

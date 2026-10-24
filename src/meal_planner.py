@@ -204,6 +204,39 @@ def match_avoid(name: str, avoid: Iterable[str]) -> bool:
     return any(w and w in name for w in avoid)
 
 
+def match_want(item: "Item", want: Iterable[str]) -> list[str]:
+    """返回该商品命中的「想吃」关键词列表。
+
+    与 avoid（硬约束、命中即排除）相反，want 是**软偏好**：
+    不做硬性过滤，而是通过提高组合评分、以及在结构模式同品类内优先排序，
+    让用户想吃的商品优先出现在方案里。
+
+    匹配分三档（从精确到宽松），因为麦当劳商品名常与口语不一致：
+      ① 完整子串：want「鸡翅」⊂ 商品名「麦辣鸡翅」
+      ② 去首字：  want「鸡翅」→「翅」⊂ 商品名「薄皮焦香V翅」
+      ③ 任意二字片段：want「麦旋风」⊂ 商品名「经典麦旋风」
+    品类名也算命中，用户说「想吃甜品」可直接落到甜品类。
+    """
+    hits: list[str] = []
+    for w in want or ():
+        if not w:
+            continue
+        # ① 完整子串 / 品类命中
+        if w in item.name or w in item.category:
+            hits.append(w)
+            continue
+        if len(w) < 2:
+            continue
+        # ② 去首字仍命中（鸡翅 -> 翅）
+        if w[1:] in item.name:
+            hits.append(w)
+            continue
+        # ③ 任意连续二字片段命中
+        if any(w[i:i + 2] in item.name for i in range(len(w) - 1)):
+            hits.append(w)
+    return hits
+
+
 def is_spicy(item: Item) -> bool:
     return any(w in item.name for w in SPICY_WORDS)
 
@@ -245,8 +278,8 @@ class MealPlanner:
 
     @staticmethod
     def score(plan: Plan, people: int, budget: float, want_drink: bool,
-              want_dessert: bool) -> float:
-        """加权评分：预算贴合 + 人均合理 + 优惠力度 + 品类完整 + 多样性。"""
+              want_dessert: bool, want: Iterable[str] = ()) -> float:
+        """加权评分：预算贴合 + 人均合理 + 优惠力度 + 品类完整 + 想吃优先。"""
         total = plan.total()
         s = 0.0
 
@@ -277,6 +310,12 @@ class MealPlanner:
         per = total / max(1, people)
         if per > budget / max(1, people) * 1.05:
             s -= 15
+
+        # 6) 正向偏好「想吃」：命中即显著加分，权重高于价格差异，
+        #    确保用户点名想吃的东西真的会优先出现在方案里（而不仅是被提到）。
+        if want:
+            hit_count = sum(len(match_want(it, want)) for it, _ in plan.items)
+            s += min(70.0, hit_count * 45.0)
         return s
 
     # ---------- 生成 ----------
@@ -289,6 +328,7 @@ class MealPlanner:
         no_spicy: bool = False,
         want_drink: bool = True,
         want_dessert: bool = False,
+        want: Iterable[str] = (),
         max_candidates: int = 4000,
         top_n: int = 12,
     ) -> list[Plan]:
@@ -309,16 +349,16 @@ class MealPlanner:
 
         # --- 策略 1：单点套餐（每人一份套餐级商品）---
         sets = [i for i in pool if i.category == "套餐" and i.price <= budget]
-        sets.sort(key=lambda i: i.price)
+        sets.sort(key=lambda i: (0 if match_want(i, want) else 1, i.price))
         for s in sets[:120]:
             q = max(1, people)
             if s.price * q <= budget:
                 combos.append([(s, q)])
 
         # --- 策略 2：套餐 + 小食 + 饮料 ---
-        snacks = sorted([i for i in pool if i.category == "小食"], key=lambda i: i.price)[:40]
-        drinks = sorted([i for i in pool if i.category == "饮料"], key=lambda i: i.price)[:40]
-        desserts = sorted([i for i in pool if i.category == "甜品"], key=lambda i: i.price)[:30]
+        snacks = sorted([i for i in pool if i.category == "小食"], key=lambda i: (0 if match_want(i, want) else 1, i.price))[:40]
+        drinks = sorted([i for i in pool if i.category == "饮料"], key=lambda i: (0 if match_want(i, want) else 1, i.price))[:40]
+        desserts = sorted([i for i in pool if i.category == "甜品"], key=lambda i: (0 if match_want(i, want) else 1, i.price))[:30]
         for s in sets[:60]:
             base = s.price * max(1, people)
             for sn in snacks[:12]:
@@ -336,7 +376,7 @@ class MealPlanner:
                             break
 
         # --- 策略 3：汉堡单点拼配，饮料/小食/甜品按需叠加（不强制带）---
-        burgers = sorted([i for i in pool if i.category == "汉堡"], key=lambda i: i.price)[:60]
+        burgers = sorted([i for i in pool if i.category == "汉堡"], key=lambda i: (0 if match_want(i, want) else 1, i.price))[:60]
         for b in burgers[:25]:
             bq = max(1, people)
             base = b.price * bq
@@ -382,7 +422,7 @@ class MealPlanner:
                 key=key, title=title, reason="", items=combo, subtotal=subtotal,
                 per_capita=subtotal / max(1, people),
             )
-            plan.score = self.score(plan, people, budget, want_drink, want_dessert)  # type: ignore[attr-defined]
+            plan.score = self.score(plan, people, budget, want_drink, want_dessert, want)  # type: ignore[attr-defined]
             scored.append((plan.score, plan))  # type: ignore[attr-defined]
 
         scored.sort(key=lambda x: x[0], reverse=True)
@@ -532,6 +572,7 @@ class MealPlanner:
         budget: float,
         avoid: Iterable[str] = (),
         no_spicy: bool = False,
+        want: Iterable[str] = (),
         per_category: int = 5,
         budget_slack: float = 1.15,
         max_candidates: int = 24,
@@ -540,6 +581,9 @@ class MealPlanner:
 
         错误信息是 **dict** 而非字符串，便于网页端区分「配不齐」的三种原因
         并展示最低所需金额（SKILL 规范要求如实说明，而不是笼统报错）。
+
+        `want`（想吃）作为软偏好在**同品类内优先**：命中商品排到该类候选前面，
+        即使它比同类最便宜的略贵 —— 这样既尊重用户偏好，又不破坏「按结构配齐」语义。
         """
         import itertools
 
@@ -567,7 +611,10 @@ class MealPlanner:
                 singles = [i for i in lst if i.category == "汉堡"]
                 if len(singles) >= 3:
                     lst = singles
-            lst.sort(key=lambda i: i.price)
+            # 排序：想吃命中的优先，其次才按真实单价升序。
+            # 结构模式本质是「求最低价」，但用户点名想吃的东西优先级更高，
+            # 因此同类内先排命中商品 —— 若命中品更贵，方案总价会略高，输出里会说明。
+            lst.sort(key=lambda i: (0 if match_want(i, want) else 1, i.price))
             pools[slot] = lst
             if not lst:
                 return [], {
@@ -598,7 +645,21 @@ class MealPlanner:
                 "gap": round(cheapest - budget, 2),
             }
 
+        # 排序：想吃命中的组合要进验证队列，否则「想吃」商品通常更贵，
+        # 会在 verify 只取前 12 名时被丢掉，导致明明能配出来却提示「未能包含」。
+        # 但也不能全排命中项 —— 否则「其实还有更便宜的非命中方案」会消失，
+        # 用户就看不到真实价差。因此两组交替排列。
         est_combos.sort(key=lambda x: x[0])
+        if want:
+            hit = [x for x in est_combos if any(match_want(it, want) for it, _ in x[1])]
+            miss = [x for x in est_combos if not any(match_want(it, want) for it, _ in x[1])]
+            merged = []
+            for i in range(max(len(hit), len(miss))):
+                if i < len(hit):
+                    merged.append(hit[i])
+                if i < len(miss):
+                    merged.append(miss[i])
+            est_combos = merged
 
         plans: list[Plan] = []
         for est, items in est_combos[:max_candidates]:
@@ -742,12 +803,14 @@ def render_structure(plan: Plan, structure: dict[str, int], budget: float,
     lines.append("")
 
     total = plan.total()
+    prefer = "已满足想吃" in (plan.reason or "")
+    tag = "**偏好优先组合**" if prefer else "**最低价组合**"
     if plan.verified_total is None:
         lines.append(f"（未能取得真实算价，以下为菜单价估算 ¥{plan.subtotal:.2f}）")
     if total <= budget:
-        lines.append(f"✅ 符合该结构的**最低价组合**：实付 ¥{total:.2f}，预算内还余 ¥{budget - total:.2f}")
+        lines.append(f"✅ 符合该结构的{tag}：实付 ¥{total:.2f}，预算内还余 ¥{budget - total:.2f}")
     else:
-        lines.append(f"⚠️ 符合该结构的**最低价组合**仍需 ¥{total:.2f}，超出预算 ¥{total - budget:.2f}")
+        lines.append(f"⚠️ 符合该结构的{tag}仍需 ¥{total:.2f}，超出预算 ¥{total - budget:.2f}")
     lines.append("")
 
     for slot, label in MealPlanner.SLOT_LABEL.items():
@@ -776,9 +839,20 @@ def render_structure(plan: Plan, structure: dict[str, int], budget: float,
     saved = plan.verified_saved
     if saved and saved > 0:
         lines.append(f"共节省：¥{saved:.2f}（相对原价）")
+    if plan.reason:
+        lines.append("")
+        lines.append(f"说明：{plan.reason}")
+    for note in plan.notes:
+        lines.append(f"备注：{note}")
     lines.append("")
-    lines.append("以上为该门店**当前可售、符合结构、总价最低**的组合；"
-                 "如需更便宜可减少份数或提高预算档位对比。")
+    # 注意：开启「想吃」偏好后，选中的不一定是绝对最低价方案，
+    # 因此这里不能笼统写「总价最低」，否则是虚假声明。
+    if "已满足想吃" in (plan.reason or ""):
+        lines.append("以上为**优先满足你「想吃」偏好**后、预算内可选的方案；"
+                     "若只看价格，可去掉偏好再查一次。")
+    else:
+        lines.append("以上为该门店**当前可售、符合结构、总价最低**的组合；"
+                     "如需更便宜可减少份数或提高预算档位对比。")
     lines.append("")
     lines.append(source_note)
     return "\n".join(lines)
@@ -786,8 +860,9 @@ def render_structure(plan: Plan, structure: dict[str, int], budget: float,
 
 
 
-def _build_reasons(plans: list[Plan], people: int, budget: float) -> None:
-    """给每个方案补上人话理由。"""
+def _build_reasons(plans: list[Plan], people: int, budget: float,
+                   want: Iterable[str] = ()) -> None:
+    """给每个方案补上人话理由（含「想吃」命中情况）。"""
     for plan in plans:
         cats = {it.category for it, _ in plan.items}
         n_items = sum(q for _, q in plan.items)
@@ -800,6 +875,18 @@ def _build_reasons(plans: list[Plan], people: int, budget: float) -> None:
             parts.append("含饮料，不用另买")
         if "甜品" in cats:
             parts.append("带甜品，体验更完整")
+        # 正向偏好：告诉用户想吃的有没有出现
+        if want:
+            hits: list[str] = []
+            for it, _q in plan.items:
+                hits.extend(match_want(it, want))
+            hits = list(dict.fromkeys(hits))
+            missed = [w for w in want if w and w not in hits]
+            if hits:
+                parts.append("已满足想吃：" + "、".join(hits))
+            if missed:
+                parts.append("未能包含：" + "、".join(missed)
+                             + "（预算或结构限制，可提高预算再试）")
         saved = sum(it.saved * q for it, q in plan.items)
         if saved > 0:
             parts.append(f"相对原价可省约 ¥{saved:.0f}")
@@ -816,7 +903,10 @@ def main() -> int:
     ap.add_argument("--store", help="直接指定 storeCode，跳过门店搜索")
     ap.add_argument("--be-code", help="beCode（得来速/外送场景需要）")
     ap.add_argument("--mode", choices=list(BE_TYPE), default="delivery", help="取餐方式")
-    ap.add_argument("--avoid", default="", help="忌口关键词，逗号分隔")
+    ap.add_argument("--avoid", default="", help="忌口关键词，逗号分隔（硬约束，命中即排除）")
+    ap.add_argument("--want", default="",
+                    help="想吃的东西，逗号分隔（软偏好，会优先出现在方案里）"
+                         "；可写商品名或品类名，如 '鸡翅' 或 '甜品'")
     ap.add_argument("--no-spicy", action="store_true", help="不吃辣")
     ap.add_argument("--no-drink", action="store_true", help="不需要饮料")
     ap.add_argument("--want-dessert", action="store_true", help="想要甜品（默认模式偏好）")
@@ -833,6 +923,7 @@ def main() -> int:
     be_type = BE_TYPE[args.mode]
     order_type = ORDER_TYPE[args.mode]
     avoid = [w.strip() for w in args.avoid.split(",") if w.strip()]
+    want = [w.strip() for w in args.want.split(",") if w.strip()]
 
     try:
         client = McdMCPClient()
@@ -899,7 +990,7 @@ def main() -> int:
             print(f"（已按品类校准 {fixed_cat} 个商品的真实单价）\n")
 
         cands, err = planner.structure_candidates(
-            structure, args.budget, avoid=avoid, no_spicy=args.no_spicy,
+            structure, args.budget, avoid=avoid, no_spicy=args.no_spicy, want=want,
         )
         if err:
             print(f"无法按该结构出方案：{err.get('message', err)}", file=sys.stderr)
@@ -914,11 +1005,31 @@ def main() -> int:
 
         verified = [p for p in cands[:verify_n] if p.verified_total is not None]
         within = [p for p in verified if p.total() <= args.budget]
-        # 预算内有解 -> 取实付最低；否则取最接近的
-        best = min(within, key=lambda p: p.total()) if within else (
-            min(verified, key=lambda p: p.total()) if verified else cands[0]
-        )
-        _build_reasons([best], sum(structure.values()), args.budget)
+
+        def _want_hits(pl):
+            return sum(len(match_want(it, want)) for it, _ in pl.items)
+
+        # 想吃优先：预算内若有命中「想吃」的方案，优先选它（即使不是最便宜），
+        # 并如实说明它比最便宜方案贵多少，不做无声的取舍。
+        best = None
+        if within and want:
+            preferred = [p for p in within if _want_hits(p) > 0]
+            if preferred:
+                best = max(preferred, key=lambda p: (_want_hits(p), -p.total()))
+                cheapest_any = min(within, key=lambda p: p.total())
+                if best.total() > cheapest_any.total() + 0.01:
+                    best.notes.append(
+                        f"为满足「{'、'.join(want)}」，实付比同类最低方案"
+                        f"（¥{cheapest_any.total():.2f}）高 ¥{best.total() - cheapest_any.total():.2f}"
+                    )
+        if best is None:
+            if within:
+                best = min(within, key=lambda p: p.total())
+            elif verified:
+                best = min(verified, key=lambda p: p.total())
+            else:
+                best = cands[0]
+        _build_reasons([best], sum(structure.values()), args.budget, want=want)
 
         src_note = (
             f"以上价格来自麦当劳 MCP 实时返回（门店 {store_code}，{len(items)} 个可售商品，"
@@ -947,6 +1058,7 @@ def main() -> int:
     plans = planner.generate(
         people=args.people, budget=args.budget, avoid=avoid,
         no_spicy=args.no_spicy, want_drink=not args.no_drink, want_dessert=args.want_dessert,
+        want=want,
         top_n=12,
     )
     if not plans:
@@ -992,7 +1104,7 @@ def main() -> int:
         over_budget_mode = True
 
     plans = selected
-    _build_reasons(plans, args.people, args.budget)
+    _build_reasons(plans, args.people, args.budget, want=want)
 
     source_note = (
         "以上价格与可售状态来自麦当劳 MCP 实时返回"

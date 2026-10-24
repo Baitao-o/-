@@ -259,7 +259,11 @@
 
     <div class="row" style="margin-top:16px">
       <div class="field">
-        <label>忌口（逗号分隔，可留空）</label>
+        <label>想吃（逗号分隔，会优先出现）</label>
+        <input type="text" id="want" placeholder="如：鸡翅,甜品">
+      </div>
+      <div class="field">
+        <label>忌口（逗号分隔，会直接排除）</label>
         <input type="text" id="avoid" placeholder="如：牛肉,香菜">
       </div>
       <div class="field" style="flex:0 0 auto;align-self:flex-end;padding-bottom:11px">
@@ -517,6 +521,7 @@
       city: $("#city").value.trim(),
       keyword: $("#keyword").value.trim(),
       avoid: $("#avoid").value.trim(),
+      want: $("#want").value.trim(),
       noSpicy: $("#noSpicy").checked,
       perPerson: $("#perPerson").checked,
       main: 0, snack: 0, dessert: 0, drink: 0,
