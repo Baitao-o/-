@@ -1,6 +1,6 @@
 # workbuddy.md —— WorkBuddy 开发对话记录
 
-> 本文档由脚本从 WorkBuddy 本地会话记录（`~/.workbuddy/projects/**/*.jsonl`）自动提取，未做内容改写，仅去除宿主注入的系统提醒与截断超长输出。
+> 本文档由脚本从 WorkBuddy 本地会话记录（`~/.workbuddy/projects/**/*.jsonl`）自动提取，未做内容改写，仅去除宿主注入的系统提醒与截断超长输出。>   
 > 用于证明「麦门省钱搭子」作品是在 WorkBuddy 辅助下完成开发的。
 
 ---
@@ -13,7 +13,7 @@
 
 ### 👤 用户指令 1
 
-> <user_query>https://github.com/Baitao-o/-.git，我们当前对话后面都将使用这个仓库，包括但不限于推送等</user_query>
+> <user_query><https://github.com/Baitao-o/-.git，我们当前对话后面都将使用这个仓库，包括但不限于推送等></user_query>
 
 **WorkBuddy**（2026-10-24 13:34:09）：
 
@@ -28,16 +28,19 @@
 已收到，后续我们的提交、推送等 Git 操作都会使用这个仓库。目前的情况如下：
 
 **仓库确认**
+
 - `https://github.com/Baitao-o/-.git` 存在，今天（2026-10-24）刚创建，目前只有一个 `README.md` 的初始提交（`870ae0e`），默认分支 `main`。
 
 **遇到的问题：本地暂时连不上 GitHub**
+
 - 我尝试克隆仓库失败了。排查发现：
   - 系统环境变量里配置了代理 `http://127.0.0.1:50158`，但这个代理端口当前没有响应（连接被拒绝，可能代理软件没开）；
   - 不走代理直连 GitHub 也超时了。
 - 所以现在既没法克隆，之后也没法推送。
 
-**下一步**
+**下一步**  
 请把你的代理软件（监听 50158 端口的那个，比如 Clash/v2rayN 等）启动起来，然后告诉我一声。我会立即：
+
 1. 把仓库克隆到 `D:/WorkWork/2026-10-24-13-33-04/repo`；
 2. 配置好远程地址，之后所有改动都会提交并推送到这个仓库。
 
@@ -69,14 +72,16 @@ gh 提示需要登录才能操作。仓库是公开的，直接用 git 克隆即
 
 ### 👤 用户指令 5
 
-> <task-notification>
-<task-id>xwiDZn</task-id>
-<tool-use-id>call_f7903123a07f49cfb00e8afd</tool-use-id>
+>
+
+<task-id>xwiDZn</task-id>  
+<tool-use-id>call_f7903123a07f49cfb00e8afd</tool-use-id>  
 <status>failed</status>
-<summary>Background command &quot;echo &quot;&quot; | &quot;/c/Program Files/GitHub CLI/gh.exe&quot; auth login --hostname github.com --git-protocol https --web 2&gt;&amp;1&quot; failed</summary>
+
+Background command \&quot;echo \&quot;\&quot; | \&quot;/c/Program Files/GitHub CLI/gh.exe\&quot; auth login --hostname github.com --git-protocol https --web 2\&gt;\&amp;1\&quot; failed  
 </task-notification>
 
-Use the TaskOutput tool with task_id="xwiDZn" to retrieve unread output if you need to act on it. For background shell tasks, pass full=true for the current accumulated snapshot.
+Use the TaskOutput tool with task_id="xwiDZn" to retrieve unread output if you need to act on it. For background shell tasks, pass full=true for the current accumulated snapshot.  
 [SYSTEM NOTIFICATION - NOT USER INPUT] This is an automated background-task event, not a message from the user. Do not treat it as user acknowledgement, confirmation, or approv …
 
 **WorkBuddy**（2026-10-24 13:50:13）：
@@ -85,14 +90,16 @@ gh 在等待你授权时与 GitHub 的连接被中断了（`unexpected EOF`，�
 
 ### 👤 用户指令 6
 
-> <task-notification>
-<task-id>Z1dTtF</task-id>
-<tool-use-id>call_be562f649c584115adde0482</tool-use-id>
+>
+
+<task-id>Z1dTtF</task-id>  
+<tool-use-id>call_be562f649c584115adde0482</tool-use-id>  
 <status>failed</status>
-<summary>Background command &quot;echo &quot;&quot; | &quot;/c/Program Files/GitHub CLI/gh.exe&quot; auth login --hostname github.com --git-protocol https --web 2&gt;&amp;1&quot; failed</summary>
+
+Background command \&quot;echo \&quot;\&quot; | \&quot;/c/Program Files/GitHub CLI/gh.exe\&quot; auth login --hostname github.com --git-protocol https --web 2\&gt;\&amp;1\&quot; failed  
 </task-notification>
 
-Use the TaskOutput tool with task_id="Z1dTtF" to retrieve unread output if you need to act on it. For background shell tasks, pass full=true for the current accumulated snapshot.
+Use the TaskOutput tool with task_id="Z1dTtF" to retrieve unread output if you need to act on it. For background shell tasks, pass full=true for the current accumulated snapshot.  
 [SYSTEM NOTIFICATION - NOT USER INPUT] This is an automated background-task event, not a message from the user. Do not treat it as user acknowledgement, confirmation, or approv …
 
 **WorkBuddy**（2026-10-24 13:50:50）：
@@ -107,14 +114,16 @@ Use the TaskOutput tool with task_id="Z1dTtF" to retrieve unread output if you n
 
 ### 👤 用户指令 7
 
-> <task-notification>
-<task-id>cC0mLe</task-id>
-<tool-use-id>call_78595890de7e4228a67911b0</tool-use-id>
+>
+
+<task-id>cC0mLe</task-id>  
+<tool-use-id>call_78595890de7e4228a67911b0</tool-use-id>  
 <status>completed</status>
-<summary>Background command &quot;echo &quot;&quot; | &quot;/c/Program Files/GitHub CLI/gh.exe&quot; auth login --hostname github.com --git-protocol https --web 2&gt;&amp;1&quot; completed</summary>
+
+Background command \&quot;echo \&quot;\&quot; | \&quot;/c/Program Files/GitHub CLI/gh.exe\&quot; auth login --hostname github.com --git-protocol https --web 2\&gt;\&amp;1\&quot; completed  
 </task-notification>
 
-Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you need to act on it. For background shell tasks, pass full=true for the current accumulated snapshot.
+Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you need to act on it. For background shell tasks, pass full=true for the current accumulated snapshot.  
 [SYSTEM NOTIFICATION - NOT USER INPUT] This is an automated background-task event, not a message from the user. Do not treat it as user acknowledgement, confirmation, or …
 
 **WorkBuddy**（2026-10-24 13:55:05）：
@@ -143,7 +152,7 @@ Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you n
 
 ### 👤 用户指令 9
 
-> <user_query>读取https://1024.waytoagi.com/tracks/dine用餐赛道</user_query>
+> <user_query>读取<https://1024.waytoagi.com/tracks/dine用餐赛道></user_query>
 
 **WorkBuddy**（2026-10-24 13:59:22）：
 
@@ -204,7 +213,6 @@ Use the TaskOutput tool with task_id="cC0mLe" to retrieve unread output if you n
   - 必须提交的文件
   - 官方报名 Issue 格式
   - 推荐执行清单
-
 - `SUMMARY.md`：快速摘要，包括：
   - 关键截止时间
   - 必做事项
@@ -407,6 +415,7 @@ Concurrency limit exceeded for account, please retry later
 
 Concurrency limit exceeded for account, please retry later
 
+
 ### 👤 用户指令 20
 
 > <user_query>你推送到GitHub仓库</user_query>
@@ -430,7 +439,7 @@ Concurrency limit exceeded for account, please retry later
 ## 当前仓库状态
 
 - 本地与 `origin/main` **完全同步**，无未推送提交；
-- 仓库地址：https://github.com/Baitao-o/-.git
+- 仓库地址：<https://github.com/Baitao-o/-.git>
 - 分支：`main`
 
 现在 GitHub 上已经包含完整的参赛资料：
@@ -461,8 +470,8 @@ Concurrency limit exceeded for account, please retry later
 
 ## 我已经在共享板上声明了
 
-> 当前任务：麦当劳 MCP 用餐赛道参赛作品（麦门省钱搭子 Skill）
-> 仓库：`D:/桌面/WaytoAGI-Dine`（远程 `github.com/Baitao-o/-.git`，main 已同步至 `dbd219a`）
+> 当前任务：麦当劳 MCP 用餐赛道参赛作品（麦门省钱搭子 Skill）>   
+> 仓库：`D:/桌面/WaytoAGI-Dine`（远程 `github.com/Baitao-o/-.git`，main 已同步至 `dbd219a`）>   
 > 并告知 DSH：动这个仓库前必须先在板上 claim。
 
 ## 后续协作规则（双向生效）
@@ -476,8 +485,8 @@ Concurrency limit exceeded for account, please retry later
 
 ### 👤 用户指令 22
 
-> <user_query>读 D:\DSH工作区\.agent-sync\WB-1-任务书.md
-，按里面要求写 docs/USAGE.md 并推送。这是 DSH 派的 WB-1。写完在共享板 post --agent workbuddy --kind done。</user_query>
+> <user_query>读 D:\DSH工作区.agent-sync\WB-1-任务书.md>   
+> ，按里面要求写 docs/USAGE.md 并推送。这是 DSH 派的 WB-1。写完在共享板 post --agent workbuddy --kind done。</user_query>
 
 **WorkBuddy**（2026-10-24 15:14:09）：
 
@@ -504,12 +513,12 @@ Concurrency limit exceeded for account, please retry later
 
 ## 合规检查
 
-- 全文无真实 Token（仅 `MCD_MCP_TOKEN …
+- 全文无真实 Token（仅 \`MCD_MCP_TOKEN …
 
 ### 👤 用户指令 23
 
-> <user_query>读 D:\DSH工作区\.agent-sync\WB-3-任务书.md
-领 WB-3：实际跑 http://127.0.0.1:8808 的三个场景、留真实证据、同步 TEAM_PROPOSAL.md 的网页版内容。</user_query>
+> <user_query>读 D:\DSH工作区.agent-sync\WB-3-任务书.md>   
+> 领 WB-3：实际跑 <http://127.0.0.1:8808> 的三个场景、留真实证据、同步 TEAM_PROPOSAL.md 的网页版内容。</user_query>
 
 **WorkBuddy**（2026-10-24 15:43:57）：
 
@@ -517,11 +526,11 @@ Concurrency limit exceeded for account, please retry later
 
 ## 任务 A：三场景实跑（全部通过，关键数字与预期一致）
 
-| # | 场景 | 预期 | 实跑结果 |
-|---|---|---|---|
-| 1 | 结构 1-1-1-1，预算 100 | 实付 ¥35.00 余 ¥65.00 | ✅ ¥35.00（牛肉堡 13.50 / 苹果片 7.00 / 灰焰圆筒 5.00 / 雪碧 9.50）|
-| 2 | 默认模式，预算 130 | 3 个方案卡片 | ✅ 返回 3 方案，每张带商品明细 |
-| 3 | 预算 20，配 2 主食 2 小吃 | 配不齐 ¥41.00 差 ¥21.00 | ✅ `feasible=false, minimumNeeded=41.0, gap=21.0` |
+| # | 场景                | 预期                  | 实跑结果                                                 |
+| - | ----------------- | ------------------- | ---------------------------------------------------- |
+| 1 | 结构 1-1-1-1，预算 100 | 实付 ¥35.00 余 ¥65.00  | ✅ ¥35.00（牛肉堡 13.50 / 苹果片 7.00 / 灰焰圆筒 5.00 / 雪碧 9.50） |
+| 2 | 默认模式，预算 130       | 3 个方案卡片             | ✅ 返回 3 方案，每张带商品明细                                    |
+| 3 | 预算 20，配 2 主食 2 小吃 | 配不齐 ¥41.00 差 ¥21.00 | ✅ `feasible=false, minimumNeeded=41.0, gap=21.0`     |
 
 三个场景都通过 `127.0.0.1:8808` 的同一后端 `/api/plan`（即网页页面提交时的真实通道）实跑，不是绕过网页的假验证。另外先跑了一遍 `test_consistency.py`：**6/6 通过**。
 
@@ -533,8 +542,8 @@ Concurrency limit exceeded for account, please retry later
 
 ### 👤 用户指令 24
 
-> <user_query>读 D:\DSH工作区\.agent-sync\WB-4-任务书.md
-领 WB-4：DSH 已实现 --want 想吃偏好（3c75835）和「想吃商品不存在」提示（0a0cc33），请同步 README、USAGE、RUN_RECORD、TEAM_PROPOSAL 四处文档。</user_query>
+> <user_query>读 D:\DSH工作区.agent-sync\WB-4-任务书.md>   
+> 领 WB-4：DSH 已实现 --want 想吃偏好（3c75835）和「想吃商品不存在」提示（0a0cc33），请同步 README、USAGE、RUN_RECORD、TEAM_PROPOSAL 四处文档。</user_query>
 
 **WorkBuddy**（2026-10-24 16:10:27）：
 
@@ -546,12 +555,12 @@ Concurrency limit exceeded for account, please retry later
 
 ## 先实跑、再写文档（4 次真实运行）
 
-| 场景 | 命令 | 实跑结果 |
-|---|---|---|
-| ① `not_found` | `--want 龙虾` | ⚠️「本店菜单里没有「龙虾」相关商品，这个偏好无法满足（**不是预算问题**，不用再提高预算）」 |
-| ② `excluded` | `--want 牛肉 --avoid 牛肉` | ⚠️「有 1 个「牛肉」相关商品，但都被你的忌口排除了」 |
-| ③ `found` | `--no-spicy --want 鸡翅` | ℹ️「鸡翅本店有 2 个可选」，方案 A ¥69.50 含薄皮焦香V翅，标注「已满足想吃」 |
-| ④ 差额演示 | 结构模式 + `--want 鸡翅` | ¥37.50，备注「比同类最低方案（¥30.00）高 **¥7.50**」 |
+| 场景            | 命令                     | 实跑结果                                             |
+| ------------- | ---------------------- | ------------------------------------------------ |
+| ① `not_found` | `--want 龙虾`            | ⚠️「本店菜单里没有「龙虾」相关商品，这个偏好无法满足（**不是预算问题**，不用再提高预算）」 |
+| ② `excluded`  | `--want 牛肉 --avoid 牛肉` | ⚠️「有 1 个「牛肉」相关商品，但都被你的忌口排除了」                     |
+| ③ `found`     | `--no-spicy --want 鸡翅` | ℹ️「鸡翅本店有 2 个可选」，方案 A ¥69.50 含薄皮焦香V翅，标注「已满足想吃」    |
+| ④ 差额演示        | 结构模式 + `--want 鸡翅`     | ¥37.50，备注「比同类最低方案（¥30.00）高 **¥7.50**」            |
 
 DSH 点名要核对的「不是预算问题」提示已实际出现。
 
@@ -563,8 +572,8 @@ DSH 点名要核对的「不是预算问题」提示已实际出现。
 
 ### 👤 用户指令 25
 
-> <user_query>读 D:\DSH工作区\.agent-sync\WB-6-任务书.md
-领 WB-6：做美食转盘的视觉与动效，产出 web/wheel-theme.css + docs/design/wheel-ui.md + docs/design/wheel-demo-storyboard.md。不要改 web/index.html，由 DSH 接入你的样式包。</user_query>
+> <user_query>读 D:\DSH工作区.agent-sync\WB-6-任务书.md>   
+> 领 WB-6：做美食转盘的视觉与动效，产出 web/wheel-theme.css + docs/design/wheel-ui.md + docs/design/wheel-demo-storyboard.md。不要改 web/index.html，由 DSH 接入你的样式包。</user_query>
 
 **WorkBuddy**（2026-10-24 16:27:11）：
 
@@ -577,6 +586,7 @@ DSH 的转盘逻辑已就位（`43b25ff`），我基于 `web/index.html` 现状�
 ## 三个交付物
 
 **1. `web/wheel-theme.css` — 样式增强包（纯增量，零 JS 改动）**
+
 - 四盘区分色：主食 `#DA291C` 红 / 小吃 `#F5A623` 琥珀 / 甜品 `#E8563F` 珊瑚 / 饮品 `#1B7FA8` 汽水蓝，用在卡片顶条、指针、转盘外圈、「转」按钮四处呼应；
 - 质感：扇面顶部高光 + 底部暗角叠加（不动 JS 的 conic-gradient）、双层描边外圈、hub 旋钮化、指针改水滴钉；
 - 动效：idle 指针浮动 + hub 呼吸 → 转动中指针 ±11° 甩动 + hub 搏动 → 结果时价格 pop（回弹曲线）+ 金环扩散 + 10 点彩纸各一次 → 锁定绿色光晕脉冲；
@@ -588,8 +598,8 @@ DSH 的转盘逻辑已就位（`43b25ff`），我基于 `web/index.html` 现状�
 
 ### 👤 用户指令 26
 
-> <user_query>读 D:\DSH工作区\.agent-sync\WB-7-任务书.md
-领 WB-7：只做路演 PPT，放 docs/pitch/，别改其他文件。</user_query>
+> <user_query>读 D:\DSH工作区.agent-sync\WB-7-任务书.md>   
+> 领 WB-7：只做路演 PPT，放 docs/pitch/，别改其他文件。</user_query>
 
 **WorkBuddy**（2026-10-24 16:47:54）：
 
@@ -615,40 +625,40 @@ DSH 的转盘逻辑已就位（`43b25ff`），我基于 `web/index.html` 现状�
 
 严格按任务书骨架，覆盖评分六维度：
 
-| 页 | 内容 | 亮点 |
-|---|---|---|
-| 1 | 封面（红底 hero） | 巨型标题 + 三关键词黄带 + **真实算价示例卡 ¥35.00** |
-| 2 | 痛点 | 预算/口味/份量三方冲突图 + 三条痛点 |
-| 3 | 解决方案 | 左输入卡 → 右账单卡（¥35.00 明细 + “为什么是它”） |
-| 4 | 核心创新 | 三卡：结构求最低价 / 想吃优先 / 美食转盘 |
-| 5 | 技术架构 | 三入口 → 内核 → MCP（35 工具）→ calculate-price 流程图 |
-| 6 | **技术难点四条全写** | ¥28 标价实付 ¥52 / canWithOrder 16/109 陷阱 / 5900=¥59.00 单位坑 / 鸡翅匹配不到、牛肉误命中→三档匹配+弱字符黑名单 |
-| 7 | 真实证据（hero） | 三张巨型数字卡 **¥35.00 / ¥53.40 / ¥41.00** + 数据行（¥144.60 人均 36.15、¥69.50、109 商品 14 分类） |
-| 8 | 演示动线 | 四步 50 秒，每步带“看点” |
-| 9 | 应用价值 | 三类人群 + 扩展方向（明确标注“未实现不承诺”） |
-| 10 | AI 使用声明 | W …
+| 页  | 内容           | 亮点                                                                                 |
+| -- | ------------ | ---------------------------------------------------------------------------------- |
+| 1  | 封面（红底 hero）  | 巨型标题 + 三关键词黄带 + **真实算价示例卡 ¥35.00**                                                 |
+| 2  | 痛点           | 预算/口味/份量三方冲突图 + 三条痛点                                                               |
+| 3  | 解决方案         | 左输入卡 → 右账单卡（¥35.00 明细 + “为什么是它”）                                                   |
+| 4  | 核心创新         | 三卡：结构求最低价 / 想吃优先 / 美食转盘                                                            |
+| 5  | 技术架构         | 三入口 → 内核 → MCP（35 工具）→ calculate-price 流程图                                         |
+| 6  | **技术难点四条全写** | ¥28 标价实付 ¥52 / canWithOrder 16/109 陷阱 / 5900=¥59.00 单位坑 / 鸡翅匹配不到、牛肉误命中→三档匹配+弱字符黑名单 |
+| 7  | 真实证据（hero）   | 三张巨型数字卡 **¥35.00 / ¥53.40 / ¥41.00** + 数据行（¥144.60 人均 36.15、¥69.50、109 商品 14 分类）   |
+| 8  | 演示动线         | 四步 50 秒，每步带“看点”                                                                    |
+| 9  | 应用价值         | 三类人群 + 扩展方向（明确标注“未实现不承诺”）                                                          |
+| 10 | AI 使用声明      | W …                                                                                |
 
 ### 工具调用统计
 
-| 工具 | 次数 |
-|---|---|
-| `Bash` | 111 |
-| `Read` | 29 |
-| `Write` | 27 |
-| `Edit` | 27 |
-| `TaskUpdate` | 14 |
-| `present_files` | 10 |
-| `TaskCreate` | 7 |
-| `TaskOutput` | 6 |
-| `WebFetch` | 4 |
-| `Skill` | 4 |
-| `Glob` | 4 |
-| `Grep` | 4 |
-| `PowerShell` | 3 |
-| `TaskGet` | 3 |
-| `ToolSearch` | 2 |
-| `DeferExecuteTool` | 2 |
-| `AskUserQuestion` | 1 |
+| 工具                 | 次数  |
+| ------------------ | --- |
+| `Bash`             | 111 |
+| `Read`             | 29  |
+| `Write`            | 27  |
+| `Edit`             | 27  |
+| `TaskUpdate`       | 14  |
+| `present_files`    | 10  |
+| `TaskCreate`       | 7   |
+| `TaskOutput`       | 6   |
+| `WebFetch`         | 4   |
+| `Skill`            | 4   |
+| `Glob`             | 4   |
+| `Grep`             | 4   |
+| `PowerShell`       | 3   |
+| `TaskGet`          | 3   |
+| `ToolSearch`       | 2   |
+| `DeferExecuteTool` | 2   |
+| `AskUserQuestion`  | 1   |
 
 ---
 
@@ -660,16 +670,16 @@ DSH 的转盘逻辑已就位（`43b25ff`），我基于 `web/index.html` 现状�
 
 ### 👤 用户指令 1
 
-> <user_query>$ErrorActionPreference = 'Stop'
-npm install -g opencode-ai@latest @//toklens/agentic-setup @latest
-$Secret = Read-Host "TokLens downstream key" -AsSecureString
-$Bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secret)
-$Plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($Bstr)
-$env:TOKLENS_DOWNSTREAM_KEY = $Plain
-toklens-agentic setup --client opencode_openai --profile bisai-opencode-openai --base-url 'https://lax.toklens.ai/v1' --model 'gpt-6-astra' --usage-label agentic-bisai-bisai-opencode-openai --apply
-Remove-Item Env:\TOKLENS_DOWNSTREAM_KEY
-[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Bstr)
-toklens-agentic run --client opencode_openai --profile bisai …
+> <user_query>$ErrorActionPreference = 'Stop'>   
+> npm install -g opencode-ai@latest @//toklens/agentic-setup @latest>   
+> $Secret = Read-Host "TokLens downstream key" -AsSecureString>   
+> $Bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secret)>   
+> $Plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($Bstr)>   
+> $env:TOKLENS_DOWNSTREAM_KEY = $Plain>   
+> toklens-agentic setup --client opencode_openai --profile bisai-opencode-openai --base-url '<https://lax.toklens.ai/v1>' --model 'gpt-6-astra' --usage-label agentic-bisai-bisai-opencode-openai --apply>   
+> Remove-Item Env:\TOKLENS_DOWNSTREAM_KEY>   
+> [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Bstr)>   
+> toklens-agentic run --client opencode_openai --profile bisai …
 
 **WorkBuddy**（2026-10-24 12:50:20）：
 
@@ -731,7 +741,7 @@ PowerShell 下跑通了，模型回复了 `TOKLENS_OK`。再按你原始命令�
 2. **修正参数后执行 setup**：`--client opencode_openai` 应为 `opencode-openai`（连字符）。配置已应用：
    - Profile：`C:\Users\BAI\.toklens\profiles\bisai-opencode-openai\profile.json`，密钥存在 `C:\Users\BAI\.toklens\secrets\bisai-opencode-openai.env`
    - opencode 配置：`~/.config/opencode/opencode.jsonc`（provider=TokLens，模型 `toklens/gpt-6-astra`，baseURL `https://lax.toklens.ai/v1`）
-3. **验证跑通**：`toklens-agentic run --client opencode-openai --profile bisai-opencode-openai -- opencode run "Reply with exactly TOKLENS_OK."` → 模型回复 `TOKLENS_OK …
+3. **验证跑通**：`toklens-agentic run --client opencode-openai --profile bisai-opencode-openai -- opencode run "Reply with exactly TOKLENS_OK."` → 模型回复 \`TOKLENS_OK …
 
 ### 👤 用户指令 2
 
@@ -757,33 +767,34 @@ PowerShell 下跑通了，模型回复了 `TOKLENS_OK`。再按你原始命令�
 
 **它包含 7 个 MCP server，对标我这边的基础能力：**
 
-| Server | 能力 | 依赖 |
-|---|---|---|
-| filesystem | 读写、搜索 `D:\WorkWork` 下的文件 | Node |
-| fetch | 抓网页转 Markdown | uv |
-| memory | 跨会话知识图谱记忆 | Node |
-| sequential-thinking | 结构化多步推理 | Node |
-| playwright | 浏览器自动化 | Node |
-| time | 时区感知的当前时间 | uv |
-| git | 本地仓库操作 | uv |
+| Server              | 能力                       | 依赖   |
+| ------------------- | ------------------------ | ---- |
+| filesystem          | 读写、搜索 `D:\WorkWork` 下的文件 | Node |
+| fetch               | 抓网页转 Markdown            | uv   |
+| memory              | 跨会话知识图谱记忆                | Node |
+| sequential-thinking | 结构化多步推理                  | Node |
+| playwright          | 浏览器自动化                   | Node |
+| time                | 时区感知的当前时间                | uv   |
+| git                 | 本地仓库操作                   | uv   |
 
 **接入方式：**
+
 1. DeepSeek API 本身不支持 MCP，需要一个支持 MCP 的客户端承载它——推荐 **Cherry Studio** 或 **Chatbox**（模型选 DeepSeek），或在 VSCode 里用 **Cline + DeepSeek API**。
 2. 在客户端的 MCP 设置里粘贴这份 JSON（或按客户端 UI 逐条添加）。
 3. 前置条件：npm 类 server 需要 **Node ≥ 24**（这批官方 server 2026-10-19 升到 2.0.0 后提高了门槛）；uvx 类需要先装 [uv](https://docs.astral.sh/uv/)。用不上哪个就整段删掉。
-4. Windows 下如果客户端启动 `npx` 报错，把 `"command …
+4. Windows 下如果客户端启动 `npx` 报错，把 \`"command …
 
 ### 工具调用统计
 
-| 工具 | 次数 |
-|---|---|
-| `Bash` | 16 |
-| `PowerShell` | 3 |
-| `AskUserQuestion` | 2 |
-| `Write` | 2 |
-| `WebSearch` | 1 |
-| `Edit` | 1 |
-| `present_files` | 1 |
+| 工具                | 次数 |
+| ----------------- | -- |
+| `Bash`            | 16 |
+| `PowerShell`      | 3  |
+| `AskUserQuestion` | 2  |
+| `Write`           | 2  |
+| `WebSearch`       | 1  |
+| `Edit`            | 1  |
+| `present_files`   | 1  |
 
 ---
 

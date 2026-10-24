@@ -447,12 +447,43 @@ python src/meal_planner.py --budget 100 --main 1 --snack 1 --dessert 1 --drink 1
 
 ## 下单和支付安全
 
-- 只推荐，不自动付款；
-- 加入购物车前说明将执行的操作；
-- 提交订单前展示商品、数量、门店、配送/取餐方式和最终金额；
-- 必须收到用户明确确认后才能继续真实提交；
-- 不猜测订单状态；
-- 不公开 Token、地址、手机号、订单号或支付信息。
+> **实现状态**：本节已落地（`/api/order/prepare|create|cancel|query`）。
+> 麦当劳 MCP 的能力边界是**只能创建订单、不能支付**，因此"支付"实质是
+> **把用户引导到麦当劳官方支付页**，钱始终不经本作品。
+
+### 硬性规则
+
+1. **默认不建单**：`dryRun` 默认 `true`，只返回 `wouldCreate` 预览；
+   要真实建单必须显式 `dryRun=false` **且** `confirmed=true`，缺一个后端直接 400。
+2. **界面双保险**：「我确认这是真实订单」复选框默认不勾选，未勾选时确认按钮 disabled。
+3. **必须展示完整清单**：商品、数量、门店、取餐方式（堂食/外带）、真实应付金额。
+4. **必须提供取消入口**：建单成功后立刻给出「取消订单」，调 `cancel-order`。
+5. **支付结果以官方为准**：只提供「我已支付，查询状态」按钮调 `query-order`，
+   不轮询、不猜测、不缓存状态。
+6. **不公开敏感信息**：Token、地址、手机号、订单号、支付链接都不得写入日志或文档。
+
+### 支付流程（实现以此为准）
+
+```
+calculate-price → 取 takeWayList（堂食 eat-in / 外带 take-in-store）
+      ↓
+create-order（传 takeWayCode + items）→ 返回 orderId / payId / payH5Url
+      ↓
+window.open(payH5Url)   ← 官方收银页，格式 https://m.mcd.cn/mcp/scanToPay?orderId=...
+      ↓
+用户点「我已支付」→ query-order 查真实状态
+```
+
+状态机（实测）：`status=10` 待支付；`status=60` 订单已取消。
+
+`takeWayCode` **必须**来自本次 `calculate-price` 的 `takeWayList`，
+代码里做了白名单校验，硬编码或伪造会被拒绝。
+
+### 官方限制
+
+周边商品（贴纸/玩具等）**不能单独建单**，会返回
+`code 499: 不可单独购买 / 其他餐品金额需大于0元`。
+下单前必须校验订单里至少有一个正价食品。
 
 确认话术：
 

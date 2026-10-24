@@ -33,7 +33,7 @@ tools      : 35
 
 ## 2. 本作品实际调用的 Tool
 
-调用链按「定位门店 → 取菜单 → 取优惠 → 真实算价」组织，共 **5 个核心工具**：
+调用链按「定位门店 → 取菜单 → 取优惠 → 真实算价」组织，共 **5 个核心工具**（下单与支付用的 `create-order` / `cancel-order` / `query-order` 见第 6 节）：
 
 | # | Tool | 作用 | 关键参数 |
 |---|---|---|---|
@@ -54,6 +54,9 @@ tools      : 35
 | `list-nutrition-foods` | 营养成分（热量约束场景） |
 | `now-time-info` | 服务器时间（判断活动/券有效期） |
 | `campaign-calendar` | 当月营销活动日历 |
+| **`create-order`** | **创建真实订单**（详见第 6 节） |
+| **`cancel-order`** | 取消订单 |
+| **`query-order`** | 查询订单状态与支付进度 |
 
 ### 参数传递规则（易错点，已在代码中固化为常量）
 
@@ -179,7 +182,103 @@ python src/meal_planner.py --people 2 --budget 130 --mode pickup --city 绍兴 -
 
 ---
 
-## 6. 安全与合规边界
+## 6. 下单与支付跳转（真实订单）
+
+本作品除了"推荐方案"，还支持**真实下单并把用户送到官方支付页**。
+这一节说明它用什么工具、有什么硬依赖、以及钱为什么不经过我们。
+
+### 6.1 用到的三个交易工具
+
+| Tool | 作用 | 关键返回字段 |
+|---|---|---|
+| `create-order` | 创建真实订单（到店/外送） | `orderId`、`payId`、**`payH5Url`**、`orderDetail` |
+| `cancel-order` | 取消订单 | `cancelResult` |
+| `query-order` | 查订单状态 | `orderStatus`、`status` |
+
+### 6.2 实测返回（DSH 用 1 份「灰焰圆筒 ¥5」验证，测完已取消）
+
+```jsonc
+{
+  "orderId": "1030000000000000000000000000",
+  "payId": "111000000000000000000",
+  "payH5Url": "https://m.mcd.cn/mcp/scanToPay?orderId=1030000000000000000000000000",
+  "orderDetail": {
+    "orderStatus": "待支付",
+    "status": "10",
+    "storeName": "麦当劳绍兴上虞上百万悦城餐厅"
+  }
+}
+```
+
+**`payH5Url` 就是官方支付链接**，格式为 `https://m.mcd.cn/mcp/scanToPay?orderId=<订单号>`。
+麦当劳 MCP 的官方工具说明也明确写了：
+
+> Next：引导用户："您可以通过**支付链接**扫码或者打开麦当劳APP完成支付"
+
+### 6.3 硬依赖：`takeWayCode` 必须来自 `calculate-price`
+
+`create-order` 在 `orderType=1`（到店）时**必传 `takeWayCode`**，
+而这个值只能从 `calculate-price` 返回的 `takeWayList` 里取：
+
+```jsonc
+// calculate-price → data.takeWayList
+[
+  { "code": "eat-in",        "title": "堂食", "subtitle": "店内用餐" },
+  { "code": "take-in-store", "title": "外带", "subtitle": "店内自提" }
+]
+```
+
+因此完整链路是**强顺序**的，不能跳步：
+
+```
+query-meals → calculate-price（拿 takeWayList）→ create-order（传 takeWayCode）→ payH5Url
+```
+
+代码里对 `takeWayCode` 做了**白名单校验**：不在本次 `takeWayList` 内的取值直接拒绝，
+防止调用方硬编码或伪造。
+
+### 6.4 订单状态机（实测）
+
+| `status` | `orderStatus` | 含义 |
+|---|---|---|
+| `10` | 待支付 | 已建单、未付款 |
+| `60` | 订单已取消 | 已取消 |
+
+支付结果**只能靠 `query-order` 主动查询**——MCP 没有支付回调，我们也不会轮询。
+
+### 6.5 官方限制：非食品不能单独建单
+
+实测用「旋旋星愿贴」（贴纸 ¥3.9）建单被拒：
+
+```
+code 499: 不可单独购买 / 其他餐品金额需大于0元
+```
+
+所以代码在进入下单流程前会校验：**订单里至少有一个正价食品**，
+只选了周边就明确告知原因，不浪费一次建单请求。
+
+### 6.6 我们的安全设计（这一节最重要）
+
+| 设计 | 做法 |
+|---|---|
+| **默认不建单** | `/api/order/create` 的 `dryRun` 默认 `true`，只返回 `wouldCreate` 预览，不调 `create-order` |
+| **二次确认不可绕过** | `dryRun=false` 时必须同时传 `confirmed=true`，否则后端直接 400（防前端 bug 或绕过界面直调接口） |
+| **界面上双保险** | 确认弹窗里「我确认这是真实订单」默认不勾选，未勾选时确认按钮 `disabled` |
+| **随时可撤销** | 建单成功后引导卡里必有「取消订单」，调 `cancel-order` |
+| **支付结果以官方为准** | 只提供「我已支付，查询状态」按钮，不猜测、不缓存状态 |
+
+### 6.7 钱为什么不经过我们
+
+- 付款发生在 `m.mcd.cn`（麦当劳官方域名），本作品**只做跳转**；
+- 本作品不接触、不存储任何支付凭证、卡号、支付密码；
+- 麦当劳 MCP 本身**没有支付工具**（35 个工具里只有下单与查单），
+  从技术上也不具备代扣能力；
+- 用户可以随时在麦当劳 App 里取消未支付订单。
+
+> 答辩口径：**点餐决策是我们解决的问题，支付交给官方渠道。**
+> 这不是能力不足，而是刻意的边界设计——AI 不应该替用户在真实资金链路上做决定。
+
+## 7. 安全与合规边界
 
 - MCP Token 从环境变量 `MCD_MCP_TOKEN` 读取，**不写入仓库、不打印到日志**；
   本地开发回退读取 WorkBuddy 连接器配置，同样不落盘到仓库。
