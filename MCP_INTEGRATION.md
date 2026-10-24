@@ -195,13 +195,13 @@ python src/meal_planner.py --people 2 --budget 130 --mode pickup --city 绍兴 -
 | `cancel-order` | 取消订单 | `cancelResult` |
 | `query-order` | 查订单状态 | `orderStatus`、`status` |
 
-### 6.2 实测返回（DSH 用 1 份「灰焰圆筒 ¥5」验证，测完已取消）
+### 6.2 实测返回（DSH 用 1 份「灰焰圆筒 ¥5」验证，测完已取消；下方订单号已脱敏）
 
 ```jsonc
 {
   "orderId": "1030000000000000000000000000",
   "payId": "111000000000000000000",
-  "payH5Url": "https://m.mcd.cn/mcp/scanToPay?orderId=1030000000000000000000000000",
+  "payH5Url": "https://m.mcd.cn/mcp/scanToPay?orderId=<订单号>",
   "orderDetail": {
     "orderStatus": "待支付",
     "status": "10",
