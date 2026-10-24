@@ -161,6 +161,17 @@
   .breakdown b{color:var(--ink)}
   .notice{font-size:11.5px;color:#9ca3af;margin-top:16px;line-height:1.6}
 
+  /* 想吃偏好诊断提示 */
+  .want-diag{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .wd-item{
+    display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.6;
+    padding:10px 12px;border-radius:10px;
+  }
+  .wd-item .ico{flex-shrink:0;font-size:14px}
+  .wd-notfound{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+  .wd-excluded{background:#fff7ed;border:1px solid #fed7aa;color:#b45309}
+  .wd-found{background:#f4f7fb;border:1px solid #e2e8f0;color:#556}
+
   /* 多方案（预算模式） */
   .plan-card{
     border:1.5px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;background:#fbfbfc;
@@ -433,6 +444,7 @@
       +   breakdownHtml
       + '</div>'
       + (best.reason ? '<div class="breakdown" style="border-top:none;padding-top:10px">' + esc(best.reason) + '</div>' : '')
+      + wantDiagHtml(data)
       + '<div class="notice">' + esc(data.notice) + '</div>'
       + '</div>';
     $("#result").classList.add("show");
@@ -462,6 +474,7 @@
         + '</div>';
     });
 
+    html += wantDiagHtml(data);
     html += '<div class="notice">' + esc(data.notice) + '</div></div>';
     $("#result").innerHTML = html;
     $("#result").classList.add("show");
@@ -502,11 +515,42 @@
       +   esc(data.error || "该结构在当前门店无法用这个预算配齐")
       + '</div>'
       + advice
+      + wantDiagHtml(data)
       + '<div class="breakdown">建议：把预算提到 ' + (min ? money(min) : "更高")
       + ' 以上；或减少份数（例如先去掉甜品 / 饮品）；也可以换一家门店看看。</div>'
       + '<div class="notice">' + esc(data.notice) + '</div>'
       + '</div>';
     $("#result").classList.add("show");
+  }
+
+  // ---------- 想吃偏好诊断（菜单没有 / 被忌口排除 / 有可选）----------
+  function wantDiagHtml(data){
+    const diag = data.wantDiagnosis || {};
+    const keys = Object.keys(diag);
+    if (!keys.length) return "";
+    let html = '<div class="want-diag">';
+    keys.forEach(function(w){
+      const d = diag[w] || {};
+      if (d.status === "not_found"){
+        html += '<div class="wd-item wd-notfound"><span class="ico">🚫</span><div>'
+          + '<b>本店菜单里没有「' + esc(w) + '」</b><br>'
+          + '这个偏好无法满足，<b>不是预算问题</b>，不用再提高预算。可以换个商品名或换一家门店。</div></div>';
+      } else if (d.status === "excluded"){
+        html += '<div class="wd-item wd-excluded"><span class="ico">⚠️</span><div>'
+          + '<b>「' + esc(w) + '」被排除了</b><br>' + esc(d.reason || "")
+          + (d.candidates && d.candidates.length
+             ? '<br>相关商品：' + esc(d.candidates.join("、")) : "")
+          + '</div></div>';
+      } else if (d.status === "found"){
+        html += '<div class="wd-item wd-found"><span class="ico">ℹ️</span><div>'
+          + '「' + esc(w) + '」本店有 ' + (d.matchCount || 0) + ' 个可选'
+          + (d.candidates && d.candidates.length
+             ? '（如 ' + esc(d.candidates.slice(0,4).join("、")) + '）' : "")
+          + '</div></div>';
+      }
+    });
+    html += '</div>';
+    return html;
   }
 
   // ---------- 提交 ----------

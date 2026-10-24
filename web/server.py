@@ -181,6 +181,7 @@ def api_plan(payload: dict) -> dict:
                 "structure": structure,
                 "notice": ("该结构在当前门店无法用这个预算配齐；"
                            "以上为按门店当前可售商品估算的最低所需金额，最终以下单页面为准。"),
+                "wantDiagnosis": planner.diagnose_want(want, avoid=avoid, no_spicy=no_spicy),
             })
             return result
 
@@ -227,6 +228,7 @@ def api_plan(payload: dict) -> dict:
             "best": plan_to_payload(best),
             "remaining": round(budget - best.total(), 2),
             "verifiedCount": verify_n,
+            "wantDiagnosis": planner.diagnose_want(want, avoid=avoid, no_spicy=no_spicy),
         })
     else:
         # ===== 默认模式：给 2~3 个方案 =====
@@ -270,6 +272,7 @@ def api_plan(payload: dict) -> dict:
             "mode": "budget",
             "feasible": feasible,
             "plans": [plan_to_payload(p) for p in selected],
+            "wantDiagnosis": planner.diagnose_want(want, avoid=avoid, no_spicy=no_spicy),
         })
 
     result["notice"] = (

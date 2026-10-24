@@ -66,6 +66,11 @@ CATEGORY_FROM_SECTION: list[tuple[str, tuple[str, ...]]] = [
 # 非食用周边（贴纸、卡片、玩具等），结构配餐时应排除
 NON_FOOD_WORDS = ("贴纸", "贴", "卡片", "徽章", "玩偶", "玩具", "手办", "摆件", "盲盒", "周边")
 
+# 「去首字」宽松匹配时的弱字符黑名单：
+# 这些单字过于泛指，用它做匹配会误命中（如「牛肉」去首字得「肉」，
+# 会错误匹配到「鸡肉堡」）。只有具备区分度的单字（如「翅」）才允许单字命中。
+WEAK_SINGLE_CHARS = set("肉味酱料块片条杯盒餐品类香辣甜鲜堡饼面饭")
+
 # 忌口关键词 -> 命中即排除
 SPICY_WORDS = ("辣", "麻辣", "香辣", "韩式辣椒", "椒")
 MEAT_WORDS = ("牛", "堡", "鸡", "鱼", "肉", "猪", "虾")
@@ -227,8 +232,10 @@ def match_want(item: "Item", want: Iterable[str]) -> list[str]:
             continue
         if len(w) < 2:
             continue
-        # ② 去首字仍命中（鸡翅 -> 翅）
-        if w[1:] in item.name:
+        # ② 去首字仍命中（鸡翅 -> 翅）；但弱字符（肉/味/块/片…）不算，
+        #    否则「想吃牛肉」会误命中「鸡肉堡单品精选」。
+        tail = w[1:]
+        if tail in item.name and not (len(tail) == 1 and tail in WEAK_SINGLE_CHARS):
             hits.append(w)
             continue
         # ③ 任意连续二字片段命中
@@ -273,6 +280,69 @@ class MealPlanner:
                 continue
             out.append(it)
         return out
+
+    # ---------- 想吃偏好诊断 ----------
+
+    def diagnose_want(
+        self,
+        want: Iterable[str] = (),
+        avoid: Iterable[str] = (),
+        no_spicy: bool = False,
+    ) -> dict[str, dict]:
+        """诊断每个「想吃」关键词在**本门店菜单**里的可满足性。
+
+        为什么需要：用户说「想吃龙虾」，如果菜单里根本没有，就绝不能提示
+        「预算或结构限制，可提高预算再试」——那是误导，用户会白提高预算。
+        必须区分三种状态：
+
+        - ``not_found``：菜单里没有任何匹配商品 → 明确告知"本店没有"
+        - ``excluded`` ：有匹配商品，但被忌口/忌辣排除 → 告知被什么排除了
+        - ``found``    ：有可售匹配商品 → 若最终方案仍未包含，才可能是预算/结构原因
+        """
+        diagnosis: dict[str, dict] = {}
+        for w in want or ():
+            if not w:
+                continue
+            matches = [it for it in self.items if match_want(it, [w])]
+            if not matches:
+                diagnosis[w] = {
+                    "status": "not_found",
+                    "reason": f"本店菜单里没有「{w}」相关商品",
+                    "candidates": [],
+                    "matchCount": 0,
+                }
+                continue
+
+            blocked_by: list[str] = []
+            allowed: list[Item] = []
+            for it in matches:
+                if match_avoid(it.name, avoid):
+                    blocked_by.append("忌口")
+                    continue
+                if no_spicy and is_spicy(it):
+                    blocked_by.append("忌辣")
+                    continue
+                allowed.append(it)
+
+            if not allowed:
+                why = "/".join(dict.fromkeys(blocked_by)) or "硬约束"
+                diagnosis[w] = {
+                    "status": "excluded",
+                    "reason": (f"有 {len(matches)} 个「{w}」相关商品，"
+                               f"但都被你的{why}排除了"),
+                    "candidates": [it.name for it in matches[:6]],
+                    "matchCount": len(matches),
+                }
+            else:
+                allowed.sort(key=lambda i: i.price)
+                diagnosis[w] = {
+                    "status": "found",
+                    "reason": "",
+                    "candidates": [it.name for it in allowed[:6]],
+                    "matchCount": len(allowed),
+                    "cheapest": round(allowed[0].price, 2),
+                }
+        return diagnosis
 
     # ---------- 评分 ----------
 
@@ -885,13 +955,29 @@ def _build_reasons(plans: list[Plan], people: int, budget: float,
             if hits:
                 parts.append("已满足想吃：" + "、".join(hits))
             if missed:
-                parts.append("未能包含：" + "、".join(missed)
-                             + "（预算或结构限制，可提高预算再试）")
+                # 只陈述事实，具体原因由 diagnose_want() 的诊断结果说明，
+                # 避免菜单里根本没有时误导用户"再提高预算试试"。
+                parts.append("本次方案未包含：" + "、".join(missed))
         saved = sum(it.saved * q for it, q in plan.items)
         if saved > 0:
             parts.append(f"相对原价可省约 ¥{saved:.0f}")
         parts.append(f"共 {n_items} 件，人均 ¥{(plan.per_capita or plan.subtotal / max(1, people)):.2f}")
         plan.reason = "；".join(parts)
+
+
+
+def _print_want_diagnosis(diagnosis: dict[str, dict]) -> None:
+    """打印「想吃」偏好的可满足性诊断（菜单没有 vs 被排除 vs 预算不够）。"""
+    for w, d in (diagnosis or {}).items():
+        st = d.get("status")
+        if st == "not_found":
+            print(f"⚠️  本店菜单里没有「{w}」相关商品，这个偏好无法满足"
+                  "（不是预算问题，不用再提高预算）。")
+        elif st == "excluded":
+            print(f"⚠️  {d.get('reason')}")
+        elif st == "found":
+            cands = "、".join(d.get("candidates") or [])
+            print(f"ℹ️  「{w}」本店有 {d.get('matchCount')} 个可选（如 {cands}）。")
 
 
 def main() -> int:
@@ -1044,9 +1130,14 @@ def main() -> int:
                 "best": best.to_dict(),
                 "itemPoolSize": len(items),
                 "sourceNote": src_note,
+                "wantDiagnosis": planner.diagnose_want(want, avoid=avoid, no_spicy=args.no_spicy),
             }, ensure_ascii=False, indent=2))
         else:
             print(render_structure(best, structure, args.budget, store_name, src_note))
+            if want:
+                print()
+                _print_want_diagnosis(
+                    planner.diagnose_want(want, avoid=avoid, no_spicy=args.no_spicy))
         return 0
 
     # ===== 默认模式：按预算生成 2～3 个策略不同的方案 =====
@@ -1120,11 +1211,16 @@ def main() -> int:
                 "itemPoolSize": len(items),
                 "plans": [p.to_dict() for p in plans],
                 "sourceNote": source_note,
+                "wantDiagnosis": planner.diagnose_want(want, avoid=avoid, no_spicy=args.no_spicy),
             },
             ensure_ascii=False, indent=2,
         ))
     else:
         print(render(plans, args.people, args.budget, store_name, source_note, over_budget_mode))
+        if want:
+            print()
+            _print_want_diagnosis(
+                planner.diagnose_want(want, avoid=avoid, no_spicy=args.no_spicy))
     return 0
 
 
