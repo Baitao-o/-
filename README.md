@@ -131,7 +131,13 @@ Issue 正文：
 - [ ] 在官方赛事仓库发布报名 Issue；
 - [ ] 在 2026-10-25 16:00 前提交 WaytoAGI 用餐赛道作品。
 
-## 5. 当前仓库状态
+## 5. Skill 框架文件
+
+- `SKILL_FRAMEWORK.md`：完整产品与技术框架；
+- `SKILL.md`：可作为 Skill 初版说明的精简执行规范；
+- `MCD_MCP_CAPABILITIES.md`：麦当劳 MCP 能力边界和验证清单。
+
+## 6. 当前仓库状态
 
 - 本地桌面目录：`D:\桌面\WaytoAGI-Dine`；
 - GitHub 远程仓库：<https://github.com/Baitao-o/-.git>；
