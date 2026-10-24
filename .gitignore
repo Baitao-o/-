@@ -21,3 +21,8 @@ secrets*
 .idea/
 .DS_Store
 Thumbs.db
+
+# 用户本地凭据（麦当劳 MCP Token 绝不能进仓库）
+mcp-config.json
+.mcd-token
+.maimen-budget-meal/

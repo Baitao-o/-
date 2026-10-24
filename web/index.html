@@ -159,6 +159,20 @@
     font-size:13px;color:var(--muted);
   }
   .breakdown b{color:var(--ink)}
+  /* MCP Token 配置引导条 */
+  .cfg-bar{margin-bottom:18px;padding:14px 16px;border-radius:12px;font-size:13px;line-height:1.75}
+  .cfg-bar.ok{background:#f2fbf5;border:1px solid #c8ecd4;color:#0f7b46;
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px}
+  .cfg-bar.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a4a05}
+  .cfg-bar a{color:inherit;text-decoration:underline;font-weight:600}
+  .cfg-src{font-size:12px;opacity:.85}
+  .cfg-inp{flex:1;min-width:210px;padding:10px 12px;border:1.5px solid #e8c9a6;
+    border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)}
+  .cfg-inp:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(218,41,28,.08)}
+  .cfg-save{padding:10px 20px;border:none;border-radius:9px;background:linear-gradient(135deg,var(--red),var(--red-dark));
+    color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0}
+  .cfg-save:hover:not(:disabled){transform:translateY(-1px)}
+  .cfg-save:disabled{opacity:.6;cursor:not-allowed}
   .notice{font-size:11.5px;color:#9ca3af;margin-top:16px;line-height:1.6}
 
   /* 想吃偏好诊断提示 */
@@ -272,6 +286,9 @@
     <h1>麦门<span class="hl">省钱搭子</span></h1>
     <p class="sub">给一个预算，再定下主食、小吃、甜品、饮品各要几份 —— 它去真实菜单里挑出<strong>这个结构下最便宜</strong>的组合。</p>
   </header>
+
+  <!-- MCP Token 配置引导 -->
+  <div id="cfgBar" class="cfg-bar" style="display:none"></div>
 
   <!-- 表单 -->
   <div class="card">
@@ -642,6 +659,96 @@
     html += '</div>';
     return html;
   }
+
+  // ---------- MCP Token 配置引导 ----------
+  async function checkConfig(){
+    try {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      const d = await res.json();
+      if (d && d.ok) renderCfgBar(d);
+    } catch (e) { /* 配置查询失败不阻塞主流程 */ }
+  }
+
+  function cfgFormHtml(d, isChange){
+    const title = isChange ? "更换 MCP Token" : "还没有配置麦当劳 MCP Token，查询会失败";
+    const io = isChange && d && d.masked
+      ? '<div style="font-size:12.5px;margin-bottom:10px">当前：' + esc(d.masked) + '　新的会覆盖旧的，只存在本机。</div>'
+      : '<div style="font-size:12.5px;margin-bottom:12px">'
+        + '① 打开 <a href="' + (d && d.applyUrl ? d.applyUrl : "https://open.mcd.cn/mcp") + '" target="_blank" rel="noopener">open.mcd.cn/mcp</a>'
+        + '，手机号登录 → 控制台 → 激活 → 申请 Token<br>'
+        + '② 粘贴到下面点保存。Token 只写进你这台机器的配置文件，不会上传、不会进 git。</div>';
+    return '<div style="font-weight:700;margin-bottom:8px">' + esc(title) + '</div>'
+      + io
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<input type="text" id="cfgToken" class="cfg-inp" placeholder="粘贴你的 MCP Token" autocomplete="off">'
+      + '<button id="cfgSave" class="cfg-save">保存</button>'
+      + (isChange ? '<button id="cfgCancel" class="cfg-save" style="background:#fff;color:#9a4a05;border:1.5px solid #fed7aa">取消</button>' : '')
+      + '</div>';
+  }
+
+  function renderCfgBar(d){
+    const el = $("#cfgBar");
+    el.style.display = "block";
+    if (d.configured){
+      el.className = "cfg-bar ok";
+      el.innerHTML = '<span>✅ 麦当劳 MCP 已配置</span>'
+        + '<span class="cfg-src">' + esc(d.sourceHint || "") + (d.masked ? " · " + esc(d.masked) : "") + '</span>'
+        + '<a href="#" id="cfgChange">更换</a>';
+      const chg = $("#cfgChange");
+      if (chg) chg.addEventListener("click", function(e){
+        e.preventDefault();
+        showCfgForm(d, true);
+      });
+    } else {
+      showCfgForm(d, false);
+    }
+  }
+
+  function showCfgForm(d, isChange){
+    const el = $("#cfgBar");
+    el.className = "cfg-bar warn";
+    el.style.display = "block";
+    el.innerHTML = cfgFormHtml(d, isChange);
+    const save = $("#cfgSave");
+    const cancel = $("#cfgCancel");
+    if (save) save.addEventListener("click", saveCfgToken);
+    if (cancel) cancel.addEventListener("click", function(){ checkConfig(); });
+    const inp = $("#cfgToken");
+    if (inp){
+      inp.focus();
+      inp.addEventListener("keydown", function(e){ if (e.key === "Enter") saveCfgToken(); });
+    }
+  }
+
+  async function saveCfgToken(){
+    const inp = $("#cfgToken");
+    const token = inp ? inp.value.trim() : "";
+    if (!token){ setStatus("error", "请先粘贴 MCP Token"); return; }
+    const btn = $("#cfgSave");
+    if (btn){ btn.disabled = true; btn.textContent = "保存中…"; }
+    try {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token })
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) throw new Error(d.error || ("保存失败 " + res.status));
+      setStatus(null);
+      renderCfgBar({
+        configured: true,
+        sourceHint: "来自本机配置文件，仅你自己可见",
+        masked: d.masked,
+        applyUrl: "https://open.mcd.cn/mcp"
+      });
+    } catch (e) {
+      setStatus("error", e.message || String(e));
+      if (btn){ btn.disabled = false; btn.textContent = "保存"; }
+    }
+  }
+
+  // 页面加载即检查一次配置状态
+  checkConfig();
 
   // ---------- 美食转盘 ----------
   const WHEEL_SLOTS = [

@@ -40,6 +40,11 @@ for _stream in (sys.stdout, sys.stderr):
 
 TOKEN_ENV = "MCD_MCP_TOKEN"
 URL_ENV = "MCD_MCP_URL"
+# 用户级配置（面向"别人拿去用"的场景）
+# 放在用户主目录而不是仓库里，避免 Token 混进 git，也避免和别的项目互相干扰。
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".maimen-budget-meal")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+# 仅本机开发用的兜底：从 WorkBuddy 连接器配置里读
 WORKBUDDY_CFG = os.path.join(os.path.expanduser("~"), ".workbuddy", "mcp.json")
 
 # beType: 1=到店自取 2=麦乐送 5=得来速 6=企业团餐
@@ -57,11 +62,8 @@ class McdMCPError(RuntimeError):
         self.payload = payload
 
 
-def load_token() -> str:
-    """按优先级取 Token：环境变量 -> WorkBuddy 连接器配置。"""
-    tok = (os.environ.get(TOKEN_ENV) or "").strip()
-    if tok:
-        return tok
+def _read_workbuddy_token() -> str:
+    """本机开发兜底：从 WorkBuddy 连接器配置里取。别人的机器上通常没有这个文件。"""
     try:
         with open(WORKBUDDY_CFG, encoding="utf-8") as f:
             cfg = json.load(f)
@@ -72,10 +74,89 @@ def load_token() -> str:
                 return auth[7:].strip()
     except (OSError, json.JSONDecodeError):
         pass
-    raise McdMCPError(
-        f"未找到麦当劳 MCP Token。请设置环境变量 {TOKEN_ENV}，"
-        "或在 WorkBuddy 里配置好 mcd-mcp 连接器后重试。"
-    )
+    return ""
+
+
+def load_token_with_source() -> tuple[str, str]:
+    """按优先级取 Token，并返回它的**来源**，便于界面提示"你现在的凭证从哪来"。
+
+    优先级：
+      1. ``env``       环境变量 MCD_MCP_TOKEN —— 适合 CI / 高级用户
+      2. ``file``      用户配置文件 ~/.maimen-budget-meal/config.json —— **普通用户推荐**
+      3. ``workbuddy`` 本机 WorkBuddy 连接器配置 —— 仅本机开发兜底
+      4. ``none``      没有配置
+    """
+    tok = (os.environ.get(TOKEN_ENV) or "").strip()
+    if tok:
+        return tok, "env"
+
+    try:
+        with open(CONFIG_FILE, encoding="utf-8") as f:
+            cfg = json.load(f)
+        tok = str(cfg.get("token") or "").strip()
+        if tok:
+            return tok, "file"
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    tok = _read_workbuddy_token()
+    if tok:
+        return tok, "workbuddy"
+
+    return "", "none"
+
+
+def load_token() -> str:
+    """兼容旧调用：只要 Token，没有就抛带引导信息的错误。"""
+    tok, _source = load_token_with_source()
+    if tok:
+        return tok
+    raise McdMCPError("\n".join([
+        "还没有配置麦当劳 MCP Token。",
+        "  ① 打开 https://open.mcd.cn/mcp 用手机号登录 → 控制台 → 激活 → 申请 Token",
+        "  ② 三种配置方式任选一种：",
+        "     · 在网页界面点「配置 MCP Token」直接填入（推荐）",
+        f"     · 设置环境变量 {TOKEN_ENV}",
+        f'     · 写入 {CONFIG_FILE}，内容形如 {{"token": "你的Token"}}',
+    ]))
+
+
+def save_token(token: str) -> str:
+    """把 Token 写入用户配置文件（权限尽量收紧），返回文件路径。"""
+    token = (token or "").strip()
+    if not token:
+        raise McdMCPError("Token 不能为空")
+    if len(token) < 12:
+        raise McdMCPError("Token 长度看起来不对，请检查是否完整复制")
+
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    payload = {"token": token, "savedAt": __import__("datetime").datetime.now().isoformat(timespec="seconds")}
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    try:
+        os.chmod(CONFIG_FILE, 0o600)  # 仅本人可读
+    except (OSError, NotImplementedError):
+        pass
+    return CONFIG_FILE
+
+
+def clear_token() -> bool:
+    """删除本机保存的 Token（环境变量不受影响）。"""
+    try:
+        os.remove(CONFIG_FILE)
+        return True
+    except OSError:
+        return False
+
+
+def mask_token(token: str) -> str:
+    """脱敏展示，任何界面/日志都只能用这个。"""
+    token = (token or "").strip()
+    if not token:
+        return ""
+    if len(token) <= 8:
+        return "*" * len(token)
+    return f"{token[:4]}{'*' * 8}{token[-4:]}"
 
 
 def _extract_json_from_text(text: str) -> Any:

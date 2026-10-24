@@ -18,6 +18,31 @@
 4. 点击「激活」按钮，阅读并同意服务协议；
 5. 申请成功后一键复制 MCP Token。
 
+### 2.1 一句话配置（推荐）
+
+启动后打开界面，如果顶部出现橙色提示「还没有配置麦当劳 MCP Token」，
+把申请到的 Token 粘进去点保存即可 —— 它只写进你自己机器的配置文件，不会上传。
+
+### 2.2 申请 Token
+
+1. 打开 <https://open.mcd.cn/mcp>；
+2. 手机号登录 → 右上角「控制台」→ 点「激活」并同意服务协议；
+3. 申请并复制 MCP Token。
+
+### 2.3 三种配置方式
+
+| 方式 | 怎么做 | 说明 |
+|---|---|---|
+| 网页填（推荐） | 界面顶部提示处直接粘贴保存 | 写入 `~/.maimen-budget-meal/config.json` |
+| 环境变量 | `set MCD_MCP_TOKEN=你的Token`（Windows） | 优先级最高，适合脚本/CI |
+| 配置文件 | 复制 `mcp-config.example.json` → `~/.maimen-budget-meal/config.json` | 适合批量部署 |
+
+> **每个使用者都要用自己的 Token。** 麦当劳 MCP 的积分、优惠券、收货地址都和账号绑定，
+> 共用别人的 Token 既不安全也不合规。仓库里不包含任何真实 Token。
+
+验证：`curl -s http://127.0.0.1:8808/api/config`，看 `source` 是 `file` 或 `env` 即正常；
+若是 `workbuddy`，说明读到的是本机开发兜底，还没配自己的。
+
 ### 配置 Token（环境变量 `MCD_MCP_TOKEN`）
 
 程序从环境变量 `MCD_MCP_TOKEN` 读取 Token，请把 `你的Token` 替换成真实值：

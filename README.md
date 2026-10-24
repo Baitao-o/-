@@ -118,6 +118,20 @@ Issue 正文：
 
 > MCP Token 属于敏感凭据，不要提交到 Git 仓库、README、截图或 Issue 中。建议使用环境变量或连接器的安全配置保存。
 
+## 3.1 本项目自己的 Token 配置（给使用者）
+
+**本仓库不含任何真实 Token。** 每个使用者都要用自己的麦当劳账号申请一个：
+
+1. 打开 <https://open.mcd.cn/mcp> → 手机号登录 → 控制台 → 激活 → 申请 Token；
+2. 任选一种方式配置：
+   - **网页里填（推荐）**：启动后界面顶部会有引导，粘贴保存即可；
+   - 环境变量：`MCD_MCP_TOKEN=你的Token`；
+   - 配置文件：复制 `mcp-config.example.json` → `~/.maimen-budget-meal/config.json`。
+
+Token 只保存在本机用户目录，已加入 `.gitignore`；界面与日志只显示掩码。
+
+验证：`curl -s http://127.0.0.1:8808/api/config`，`source` 为 `file` 或 `env` 即正常。
+
 ## 4. 推荐执行顺序
 
 - [ ] 申请麦当劳 MCP Token；

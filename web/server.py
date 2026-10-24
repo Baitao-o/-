@@ -28,7 +28,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from mcp_client import BE_TYPE, ORDER_TYPE, McdMCPClient, McdMCPError  # noqa: E402
+from mcp_client import (  # noqa: E402
+    BE_TYPE,
+    CONFIG_FILE,
+    ORDER_TYPE,
+    McdMCPClient,
+    McdMCPError,
+    clear_token,
+    load_token_with_source,
+    mask_token,
+    save_token,
+)
 from meal_planner import (  # noqa: E402
     NON_FOOD_WORDS,
     MealPlanner,
@@ -282,6 +292,65 @@ def api_plan(payload: dict) -> dict:
     return result
 
 
+# ---------------------------------------------------------------- MCP Token 配置
+
+SOURCE_HINT = {
+    "env": "来自环境变量 MCD_MCP_TOKEN（优先级最高）",
+    "file": "来自本机配置文件，仅你自己可见",
+    "workbuddy": "检测到本机 WorkBuddy 的连接器配置（开发兜底，建议改成自己的）",
+    "none": "尚未配置",
+}
+
+
+def api_config_get() -> dict:
+    """查询当前 Token 配置状态（只返回掩码，绝不返回明文）。"""
+    token, source = load_token_with_source()
+    return {
+        "ok": True,
+        "configured": bool(token),
+        "source": source,
+        "sourceHint": SOURCE_HINT.get(source, ""),
+        "masked": mask_token(token),
+        "configPath": CONFIG_FILE,
+        "applyUrl": "https://open.mcd.cn/mcp",
+        "note": "每个使用者都要配置自己的麦当劳 MCP Token，不能共用同一个。",
+    }
+
+
+def api_config_set(payload: dict) -> dict:
+    """保存用户自己的 Token 到本机配置文件，并让客户端立即用新 Token。"""
+    global _client
+    token = str(payload.get("token") or "").strip()
+    if not token:
+        raise ValueError("请填写 MCP Token")
+    path = save_token(token)
+    with _client_lock:
+        _client = None  # 丢弃旧客户端缓存，下次请求按新 Token 重建
+    return {
+        "ok": True,
+        "configured": True,
+        "configPath": path,
+        "masked": mask_token(token),
+        "message": "已保存，之后所有查询都会使用这个 Token。",
+    }
+
+
+def api_config_clear() -> dict:
+    """删除本机保存的 Token（不影响环境变量）。"""
+    global _client
+    removed = clear_token()
+    with _client_lock:
+        _client = None
+    token, source = load_token_with_source()
+    return {
+        "ok": True,
+        "removed": removed,
+        "configured": bool(token),
+        "source": source,
+        "message": "已删除本机保存的 Token。" if removed else "本机没有保存过 Token。",
+    }
+
+
 # ---------------------------------------------------------------- 美食转盘
 
 WHEEL_SLOTS = ("main", "snack", "dessert", "drink")
@@ -503,7 +572,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/api/health":
-            return self._json(200, {"ok": True, "service": "maimen-budget-meal"})
+            token, source = load_token_with_source()
+            return self._json(200, {
+                "ok": True,
+                "service": "maimen-budget-meal",
+                "mcpConfigured": bool(token),
+                "mcpSource": source,
+            })
+        if path == "/api/config":
+            return self._json(200, api_config_get())
         return self._static(path)
 
     def do_POST(self):
@@ -512,6 +589,8 @@ class Handler(BaseHTTPRequestHandler):
             "/api/plan": api_plan,
             "/api/wheel/pool": api_wheel_pool,
             "/api/wheel/settle": api_wheel_settle,
+            "/api/config": api_config_set,
+            "/api/config/clear": lambda _payload: api_config_clear(),
         }
         handler = handlers.get(path)
         if handler is None:
