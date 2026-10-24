@@ -282,6 +282,173 @@ def api_plan(payload: dict) -> dict:
     return result
 
 
+# ---------------------------------------------------------------- 美食转盘
+
+WHEEL_SLOTS = ("main", "snack", "dessert", "drink")
+WHEEL_PER_SLOT = 12          # 每个转盘最多放多少个扇形
+WHEEL_MIN_CANDIDATES = 4     # 少于此数量就放宽预算约束
+
+
+def api_wheel_pool(payload: dict) -> dict:
+    """生成四个品类转盘的候选池。
+
+    做法：把预算按四个品类均分（budget/4），每类只放「单价不超过该额度」的商品，
+    这样四件都转出来后大概率落在预算内。若某类候选不足，则放宽到该类最便宜的若干件，
+    由前端在结算时如实提示是否超预算（不做无声裁剪）。
+
+    主食池只取单点汉堡：套餐的菜单价是「最低价起售」，实际成交价更高，
+    放进转盘会让用户以为很便宜，转完却超预算。
+    """
+    try:
+        budget = float(payload.get("budget") or 0)
+    except (TypeError, ValueError):
+        raise ValueError("预算必须是数字")
+    if budget <= 0:
+        raise ValueError("请填写大于 0 的预算")
+
+    people = max(1, int(payload.get("people") or 1))
+    mode = payload.get("mode") or "pickup"
+    if mode not in BE_TYPE:
+        raise ValueError(f"不支持的取餐方式：{mode}")
+    city = (payload.get("city") or "").strip()
+    keyword = (payload.get("keyword") or "").strip()
+
+    stores, be_type = resolve_stores(mode, city, keyword,
+                                     int(payload.get("addressIndex") or 0))
+    store = stores[0]
+    store_code = store.get("storeCode")
+    be_code = store.get("beCode")
+    store_name = store.get("storeName") or store_code
+    order_type = ORDER_TYPE[mode]
+
+    c = get_client()
+    menu = c.meals(store_code, be_type=be_type, be_code=be_code, order_type=order_type)
+    items = normalize_meals(menu)
+    if not items:
+        raise ValueError("该门店当前没有可售商品")
+
+    slot_budget = budget / len(WHEEL_SLOTS)
+
+    def _clean(lst):
+        return [
+            it for it in lst
+            if not any(w in it.name for w in NON_FOOD_WORDS)
+        ]
+
+    pools: dict[str, list[dict]] = {}
+    for slot in WHEEL_SLOTS:
+        cand = [
+            it for it in _clean(items)
+            if MealPlanner.SLOT_OF_CATEGORY.get(it.category) == slot
+        ]
+        if slot == "main":
+            # 主食只放单点汉堡，避免套餐「最低价起售」造成价格误判
+            single = [it for it in cand if it.category == "汉堡"]
+            if len(single) >= WHEEL_MIN_CANDIDATES:
+                cand = single
+        cand.sort(key=lambda i: i.price)
+
+        affordable = [it for it in cand if it.price <= slot_budget]
+        chosen = affordable[:WHEEL_PER_SLOT]
+        if len(chosen) < WHEEL_MIN_CANDIDATES:
+            # 该品类太贵或太少：放宽到该类最便宜的一批，前端会提示可能超预算
+            chosen = cand[:min(WHEEL_PER_SLOT, max(WHEEL_MIN_CANDIDATES, len(cand)))]
+
+        pools[slot] = [
+            {
+                "code": it.code,
+                "name": it.name,
+                "price": round(it.price, 2),
+                "originalPrice": round(it.original_price, 2),
+                "category": it.category,
+            }
+            for it in chosen
+        ]
+
+    empty = [MealPlanner.SLOT_LABEL[s] for s in WHEEL_SLOTS if not pools.get(s)]
+    if empty:
+        raise ValueError(f"该门店没有可用的「{'、'.join(empty)}」类商品")
+
+    return {
+        "ok": True,
+        "store": {
+            "storeCode": store_code,
+            "beCode": be_code,
+            "name": store_name,
+            "address": store.get("address") or "",
+            "businessStatus": store.get("businessStatus"),
+        },
+        "request": {"budget": budget, "people": people, "mode": mode},
+        "slotBudget": round(slot_budget, 2),
+        "itemPoolSize": len(items),
+        "pools": pools,
+        "notice": (f"每个转盘的候选都来自门店 {store_code} 的实时菜单（共 {len(items)} 个商品），"
+                   "标价为菜单价，最终以真实算价为准。"),
+    }
+
+
+def api_wheel_settle(payload: dict) -> dict:
+    """转盘抽完后结算：对抽中的商品做真实算价。
+
+    与结构模式的区别：结构模式是自己求最低价，而转盘是「用户抽到什么就结算什么」，
+    因此这里直接调 calculate-price，不做任何替换或优化——
+    否则用户会觉得「我抽到的东西被偷偷换掉了」。
+    """
+    store_code = (payload.get("storeCode") or "").strip()
+    if not store_code:
+        raise ValueError("缺少门店编码 storeCode")
+    mode = payload.get("mode") or "pickup"
+    if mode not in BE_TYPE:
+        raise ValueError(f"不支持的取餐方式：{mode}")
+
+    raw_items = payload.get("items") or []
+    if not isinstance(raw_items, list) or not raw_items:
+        raise ValueError("没有要结算的商品")
+    calc_items = []
+    for it in raw_items:
+        code = str((it or {}).get("code") or "").strip()
+        qty = int((it or {}).get("quantity") or 1)
+        if not code or qty <= 0:
+            continue
+        calc_items.append({"productCode": code, "quantity": qty})
+    if not calc_items:
+        raise ValueError("没有有效的商品")
+
+    be_type = BE_TYPE[mode]
+    order_type = ORDER_TYPE[mode]
+    be_code = (payload.get("beCode") or "").strip() or None
+
+    c = get_client()
+    res = c.calculate_price(
+        store_code, calc_items, be_type=be_type, be_code=be_code, order_type=order_type
+    )
+    data = res.get("data") if isinstance(res, dict) else None
+    if not isinstance(data, dict):
+        raise ValueError("算价返回结构异常")
+
+    fen = lambda v: round((float(v or 0)) / 100.0, 2)  # noqa: E731
+    return {
+        "ok": True,
+        "store": {"storeCode": store_code},
+        "price": fen(data.get("price")),
+        "originalPrice": fen(data.get("originalPrice")),
+        "discount": fen(data.get("discount")),
+        "productPrice": fen(data.get("productPrice")),
+        "deliveryPrice": fen(data.get("deliveryPrice")),
+        "packingPrice": fen(data.get("packingPrice")),
+        "products": [
+            {
+                "code": p.get("productCode"),
+                "name": p.get("productName"),
+                "quantity": p.get("quantity"),
+                "subtotal": fen(p.get("subtotal")),
+            }
+            for p in (data.get("productList") or [])
+        ],
+        "notice": "价格来自麦当劳 MCP 的 calculate-price 实时计算，最终以下单页面为准。",
+    }
+
+
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
@@ -341,7 +508,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path != "/api/plan":
+        handlers = {
+            "/api/plan": api_plan,
+            "/api/wheel/pool": api_wheel_pool,
+            "/api/wheel/settle": api_wheel_settle,
+        }
+        handler = handlers.get(path)
+        if handler is None:
             return self._json(404, {"ok": False, "error": "not found"})
 
         try:
@@ -358,7 +531,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, "error": f"请求格式错误：{exc}"})
 
         try:
-            return self._json(200, api_plan(payload))
+            return self._json(200, handler(payload))
         except (ValueError, McdMCPError) as exc:
             return self._json(400, {"ok": False, "error": str(exc)})
         except Exception as exc:  # noqa: BLE001

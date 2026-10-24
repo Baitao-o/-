@@ -187,6 +187,70 @@
   /* 免责 */
   footer{text-align:center;font-size:11.5px;color:#9ca3af;margin-top:28px;line-height:1.8}
 
+
+  /* ---------- 美食转盘 ---------- */
+  .wheel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:4px}
+  .wheel-card{
+    border:1.5px solid var(--line);border-radius:14px;padding:14px 12px;background:#fbfbfc;
+    text-align:center;transition:.2s;
+  }
+  .wheel-card.spinning{border-color:var(--yellow);background:#fffdf6}
+  .wheel-card.locked{border-color:var(--green);background:#f2fbf5}
+  .wc-head{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:10px}
+  .wheel-wrap{position:relative;width:100%;max-width:190px;margin:0 auto;aspect-ratio:1}
+  .wheel{
+    width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;
+    border:5px solid #fff;box-shadow:0 0 0 2px #ececf0, inset 0 0 0 1px rgba(0,0,0,.04), 0 6px 16px rgba(16,24,40,.10);
+    transition:transform 2.9s cubic-bezier(.16,.84,.28,1);
+    will-change:transform;
+  }
+  .wheel-disc{width:100%;height:100%;border-radius:50%}
+  .wheel-hub{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:44%;height:44%;border-radius:50%;background:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;color:var(--red);padding:6px;line-height:1.2;overflow:hidden;
+    text-align:center;z-index:2;
+  }
+  .wheel-pointer{
+    position:absolute;left:50%;top:-9px;transform:translateX(-50%);
+    width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;
+    border-top:15px solid var(--red);z-index:4;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));
+  }
+  .wheel-card.idle .wheel-pointer{animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(4px)}}
+  .wc-result{
+    margin-top:10px;font-size:13px;font-weight:700;color:var(--ink);min-height:20px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .wc-result .pr{color:var(--muted);font-weight:600;font-size:11px;margin-left:4px}
+  .wc-actions{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
+  .wc-spin{
+    padding:7px 18px;border:none;border-radius:9px;cursor:pointer;font-family:inherit;
+    background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;font-size:13px;font-weight:700;
+    box-shadow:0 3px 10px rgba(218,41,28,.26);transition:.15s;
+  }
+  .wc-spin:hover:not(:disabled){transform:translateY(-1px)}
+  .wc-spin:disabled{opacity:.5;cursor:not-allowed}
+  .wc-lock{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .wc-lock input{width:14px;height:14px;accent-color:var(--green);cursor:pointer}
+  .wheel-toolbar{display:flex;gap:12px;margin-top:18px}
+  .wheel-toolbar button{flex:1}
+  .btn-secondary{
+    padding:14px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);
+    font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;
+  }
+  .btn-secondary:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+  .btn-secondary:disabled{opacity:.5;cursor:not-allowed}
+  .settle-card{margin-top:16px}
+
+  @media(max-width:560px){
+    .wheel-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+    .wheel-card{padding:10px 8px}
+    .wheel-wrap{max-width:130px}
+    .wc-spin{padding:6px 12px;font-size:12px}
+  }
+
   @media(max-width:640px){
     h1{font-size:24px}
     .wrap{padding:16px 12px 48px}
@@ -244,6 +308,7 @@
       <div class="seg" id="planModeSeg" style="margin-bottom:14px">
         <button class="on" data-pmode="structure">按结构配 · 求最低价</button>
         <button data-pmode="budget">帮我搭配 · 推荐方案</button>
+        <button data-pmode="wheel">🎰 美食转盘 · 随机抽</button>
       </div>
       <label id="structLabel" style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">
         餐品结构（各要几份，0 表示不要）
@@ -287,6 +352,22 @@
 
     <button class="submit" id="go"><span>🍔</span> 给我这个结构的最低价</button>
   </div>
+
+  <!-- 美食转盘 -->
+  <div class="card" id="wheelSection" style="display:none">
+    <h2>运气点餐 · 四个盘各转一格</h2>
+    <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px">
+      候选全部来自该门店实时菜单，按你的预算均分到四类。抽中后点「结算」会用真实算价告诉你到底多少钱。
+    </p>
+    <div class="wheel-grid" id="wheelGrid"></div>
+    <div class="wheel-toolbar">
+      <button class="btn-secondary" id="spinAll" disabled>🎰 全部转起来</button>
+      <button class="btn-secondary" id="settleBtn" disabled>✅ 就这个，算真实价格</button>
+    </div>
+  </div>
+
+  <!-- 结算结果 -->
+  <div class="result" id="settleResult"></div>
 
   <!-- 状态 -->
   <div class="status" id="status"></div>
@@ -333,11 +414,18 @@
       btn.classList.add("on");
       state.planMode = btn.dataset.pmode;
       var showStruct = state.planMode === "structure";
+      var isWheel = state.planMode === "wheel";
       $("#structGrid").style.display = showStruct ? "grid" : "none";
       $("#structLabel").style.display = showStruct ? "block" : "none";
-      $("#go").innerHTML = showStruct
-        ? '<span>🍔</span> 给我这个结构的最低价'
-        : '<span>🎲</span> 帮我搭配几个方案';
+      $("#wheelSection").style.display = (isWheel && state.wheel.pools) ? "block" : "none";
+      if (!isWheel) $("#settleResult").classList.remove("show");
+      if (isWheel) {
+        $("#go").innerHTML = '<span>🎰</span> 生成转盘';
+      } else if (showStruct) {
+        $("#go").innerHTML = '<span>🍔</span> 给我这个结构的最低价';
+      } else {
+        $("#go").innerHTML = '<span>🎲</span> 帮我搭配几个方案';
+      }
     });
   });
 
@@ -553,8 +641,247 @@
     return html;
   }
 
+  // ---------- 美食转盘 ----------
+  const WHEEL_SLOTS = [
+    { key: "main",    label: "主食", icon: "🍔" },
+    { key: "snack",   label: "小吃", icon: "🍟" },
+    { key: "dessert", label: "甜品", icon: "🍦" },
+    { key: "drink",   label: "饮品", icon: "🥤" }
+  ];
+  const WHEEL_COLORS = ["#DA291C","#FFC72C","#E8563F","#F5A623","#C42418","#FFD65C","#D9534F","#FFE08A"];
+  const WHEEL_SPIN_MS = 2900;
+
+  state.wheel = { pools: null, store: null, request: null,
+                  results: {}, locked: {}, rotation: {}, spinning: {} };
+
+  async function postJSON(path, payload, timeoutMs){
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs || 90000);
+    try {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || ("请求失败 " + res.status));
+      return data;
+    } catch (err) {
+      if (err.name === "AbortError") throw new Error("请求超时，请稍后重试");
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function buildWheels(){
+    const grid = $("#wheelGrid");
+    grid.innerHTML = "";
+    WHEEL_SLOTS.forEach(function(sl){
+      const card = document.createElement("div");
+      card.className = "wheel-card idle";
+      card.dataset.slot = sl.key;
+      card.innerHTML =
+        '<div class="wc-head"><span>' + sl.icon + '</span><span>' + sl.label + '</span></div>'
+        + '<div class="wheel-wrap">'
+        +   '<div class="wheel-pointer"></div>'
+        +   '<div class="wheel"><div class="wheel-disc"></div><div class="wheel-hub">转一下</div></div>'
+        + '</div>'
+        + '<div class="wc-result">还没转</div>'
+        + '<div class="wc-actions">'
+        +   '<button class="wc-spin">转</button>'
+        +   '<label class="wc-lock"><input type="checkbox"> 锁定</label>'
+        + '</div>';
+      grid.appendChild(card);
+
+      const btn = card.querySelector(".wc-spin");
+      const lock = card.querySelector(".wc-lock input");
+      btn.addEventListener("click", function(){ spinSlot(sl.key); });
+      lock.addEventListener("change", function(){
+        state.wheel.locked[sl.key] = lock.checked;
+        card.classList.toggle("locked", lock.checked);
+        btn.disabled = lock.checked;
+        updateWheelButtons();
+      });
+
+      state.wheel.rotation[sl.key] = 0;
+      state.wheel.results[sl.key] = null;
+      state.wheel.locked[sl.key] = false;
+      state.wheel.spinning[sl.key] = false;
+      card.querySelector(".wheel").style.transform = "rotate(0deg)";
+    });
+  }
+
+  function paintWheel(slot){
+    const pool = state.wheel.pools[slot] || [];
+    const card = document.querySelector('.wheel-card[data-slot="' + slot + '"]');
+    if (!card || !pool.length) return;
+    const n = pool.length, seg = 360 / n, stops = [];
+    for (let i = 0; i < n; i++){
+      stops.push(WHEEL_COLORS[i % WHEEL_COLORS.length] + " " + (i * seg) + "deg " + ((i + 1) * seg) + "deg");
+    }
+    card.querySelector(".wheel-disc").style.background = "conic-gradient(" + stops.join(",") + ")";
+  }
+
+  function spinSlot(slot){
+    const pool = state.wheel.pools[slot];
+    if (!pool || !pool.length) return;
+    if (state.wheel.locked[slot] || state.wheel.spinning[slot]) return;
+
+    const card = document.querySelector('.wheel-card[data-slot="' + slot + '"]');
+    const wheelEl = card.querySelector(".wheel");
+    const hub = card.querySelector(".wheel-hub");
+    const resEl = card.querySelector(".wc-result");
+    const btn = card.querySelector(".wc-spin");
+
+    state.wheel.spinning[slot] = true;
+    card.classList.add("spinning");
+    card.classList.remove("idle");
+    btn.disabled = true;
+    hub.textContent = "…";
+    resEl.textContent = "转动中…";
+
+    const n = pool.length, seg = 360 / n;
+    const idx = Math.floor(Math.random() * n);
+    const targetCenter = idx * seg + seg / 2;
+    const cur = ((state.wheel.rotation[slot] % 360) + 360) % 360;
+    const delta = (360 - targetCenter - cur + 360) % 360;
+    state.wheel.rotation[slot] += 360 * 6 + delta;
+    wheelEl.style.transform = "rotate(" + state.wheel.rotation[slot] + "deg)";
+
+    setTimeout(function(){
+      const it = pool[idx];
+      state.wheel.results[slot] = it;
+      state.wheel.spinning[slot] = false;
+      card.classList.remove("spinning");
+      if (!state.wheel.locked[slot]) btn.disabled = false;
+      hub.textContent = "¥" + it.price;
+      resEl.innerHTML = esc(it.name) + '<span class="pr">¥' + it.price + '</span>';
+      updateWheelButtons();
+    }, WHEEL_SPIN_MS);
+  }
+
+  function spinAll(){
+    WHEEL_SLOTS.forEach(function(sl, i){
+      if (state.wheel.locked[sl.key]) return;
+      setTimeout(function(){ spinSlot(sl.key); }, i * 280);
+    });
+  }
+
+  function updateWheelButtons(){
+    const ready = WHEEL_SLOTS.every(function(sl){ return !!state.wheel.results[sl.key]; });
+    $("#spinAll").disabled = !state.wheel.pools;
+    $("#settleBtn").disabled = !ready;
+  }
+
+  async function runWheel(){
+    const budget = Number($("#budget").value || 0);
+    if (!(budget > 0)) { setStatus("error", "请填写大于 0 的预算"); return; }
+
+    $("#go").disabled = true;
+    $("#settleResult").classList.remove("show");
+    setStatus("loading", "正在拉取该门店实时菜单，按预算生成四个转盘…（约 10 秒）");
+
+    try {
+      const data = await postJSON("/api/wheel/pool", {
+        budget: budget,
+        people: Number($("#people").value || 1),
+        mode: state.mode,
+        city: $("#city").value.trim(),
+        keyword: $("#keyword").value.trim()
+      });
+      state.wheel.pools = data.pools;
+      state.wheel.store = data.store;
+      state.wheel.request = data.request;
+      buildWheels();
+      WHEEL_SLOTS.forEach(function(sl){ paintWheel(sl.key); });
+      $("#wheelSection").style.display = "block";
+      setStatus(null);
+      updateWheelButtons();
+      $("#wheelSection").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (err) {
+      setStatus("error", err.message || String(err));
+    } finally {
+      $("#go").disabled = false;
+    }
+  }
+
+  async function settleWheel(){
+    const items = WHEEL_SLOTS.map(function(sl){
+      const it = state.wheel.results[sl.key];
+      return it ? { code: it.code, quantity: 1 } : null;
+    }).filter(Boolean);
+    if (items.length !== WHEEL_SLOTS.length) return;
+
+    const btn = $("#settleBtn");
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ 正在真实算价…";
+    try {
+      const d = await postJSON("/api/wheel/settle", {
+        storeCode: state.wheel.store.storeCode,
+        beCode: state.wheel.store.beCode,
+        mode: state.wheel.request.mode,
+        items: items
+      });
+      renderSettle(d);
+    } catch (err) {
+      setStatus("error", err.message || String(err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = old;
+    }
+  }
+
+  function renderSettle(d){
+    const budget = state.wheel.request.budget;
+    const total = d.price;
+    const ok = total <= budget;
+    const used = Math.min(100, (total / budget) * 100);
+
+    let rows = "";
+    WHEEL_SLOTS.forEach(function(sl){
+      const it = state.wheel.results[sl.key];
+      if (!it) return;
+      rows += '<div class="slot-row">'
+        + '<div class="slot-tag">' + sl.icon + " " + sl.label + '</div>'
+        + '<div class="slot-info"><div class="n">' + esc(it.name) + '</div>'
+        + '<div class="q">菜单价 ¥' + it.price + '</div></div>'
+        + '<div class="slot-price"><div class="p">¥' + it.price + '</div><div class="u">菜单价</div></div>'
+        + '</div>';
+    });
+
+    const parts = ["商品 ¥" + d.productPrice];
+    if (d.deliveryPrice) parts.push("配送 ¥" + d.deliveryPrice);
+    if (d.packingPrice) parts.push("打包 ¥" + d.packingPrice);
+    if (d.discount) parts.push("优惠 -¥" + d.discount);
+    const bd = '<div class="breakdown">费用拆分：<b>' + parts.join(" + ") + '</b></div>';
+
+    $("#settleResult").innerHTML =
+      '<div class="card settle-card">'
+      + '<div class="store-head"><div><div class="nm">🎰 你抽到的这一顿</div>'
+      + '<div class="meta">' + esc(state.wheel.store.name) + ' · 门店 ' + esc(state.wheel.store.storeCode) + '</div></div>'
+      + '<div class="badge ' + (ok ? "ok" : "warn") + '">' + (ok ? "✓ 预算内" : "⚠ 超预算") + '</div></div>'
+      + rows
+      + '<div class="total-box">'
+      +   '<div class="total-line"><span class="lb">真实算价 · 实付</span><span class="big">¥' + total.toFixed(2) + '</span></div>'
+      +   '<div class="bar ' + (ok ? "ok" : "over") + '"><span style="width:' + used + '%"></span></div>'
+      +   '<div class="bar-note"><span>预算 ¥' + budget + '</span><span>' + (ok ? "还余 ¥" + (budget - total).toFixed(2) : "超 ¥" + (total - budget).toFixed(2)) + '</span></div>'
+      +   bd
+      + '</div>'
+      + '<div class="notice">' + esc(d.notice) + '</div>'
+      + '</div>';
+    $("#settleResult").classList.add("show");
+    $("#settleResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  $("#spinAll").addEventListener("click", spinAll);
+  $("#settleBtn").addEventListener("click", settleWheel);
+
   // ---------- 提交 ----------
   async function run(){
+    if (state.planMode === "wheel") return runWheel();
     const budget = Number($("#budget").value || 0);
     if (!(budget > 0)) { setStatus("error", "请填写大于 0 的预算"); return; }
 
