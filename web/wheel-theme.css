@@ -1,0 +1,261 @@
+/* ============================================================
+   麦门省钱搭子 · 美食转盘视觉增强包（wheel-theme.css）
+   状态：待 DSH 接入（在 index.html 的 </style> 之后加
+         <link rel="stylesheet" href="wheel-theme.css"> 即生效）
+   作用域：仅 #wheelSection / #wheelGrid / .wheel-* —— 无全局污染
+   时长约定：旋转时长保持 2900ms（与 JS WHEEL_SPIN_MS 一致，无需改 JS）
+             「全部转起来」间隔保持 280ms（与 JS i*280 一致，无需改 JS）
+   ============================================================ */
+
+/* ---------- 1. 主题变量（集中管理，方便微调） ---------- */
+#wheelSection{
+  --wt-red:#DA291C;          /* 麦当劳红 */
+  --wt-red-dark:#b31f14;
+  --wt-yellow:#FFC72C;       /* 麦当劳黄 */
+  --wt-yellow-soft:#FFF4CC;
+  --wt-green:#0f9d58;        /* 锁定绿 */
+  --wt-ink:#1a1a1a;
+  --wt-spin-duration:2900ms; /* 改这里必须同步改 JS 的 WHEEL_SPIN_MS */
+}
+
+/* 四个盘的区分色：主食红 / 小吃琥珀 / 甜品珊瑚 / 饮品汽水蓝 */
+.wheel-card[data-slot="main"]{
+  --wc-accent:#DA291C; --wc-accent-dark:#b31f14; --wc-accent-soft:#fdeceb;
+}
+.wheel-card[data-slot="snack"]{
+  --wc-accent:#F5A623; --wc-accent-dark:#c77e0a; --wc-accent-soft:#fff3dd;
+}
+.wheel-card[data-slot="dessert"]{
+  --wc-accent:#E8563F; --wc-accent-dark:#bd3a27; --wc-accent-soft:#fdeae6;
+}
+.wheel-card[data-slot="drink"]{
+  --wc-accent:#1B7FA8; --wc-accent-dark:#145f80; --wc-accent-soft:#e3f2f9;
+}
+
+/* ---------- 2. 卡片容器：顶部色条 + 暖白纸感 ---------- */
+#wheelGrid .wheel-card{
+  position:relative;overflow:hidden;border-radius:16px;
+  border:1.5px solid #f0e6d2;
+  background:linear-gradient(180deg,#fffdf7 0%,#ffffff 60%);
+  box-shadow:0 2px 6px rgba(16,24,40,.05),0 10px 22px rgba(218,41,28,.06);
+}
+#wheelGrid .wheel-card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:4px;
+  background:var(--wc-accent,#DA291C);
+}
+
+/* 标题行：图标放进对应色的小圆片 */
+.wheel-card .wc-head span:first-child{
+  width:26px;height:26px;border-radius:50%;
+  background:var(--wc-accent-soft);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:14px;line-height:1;
+}
+
+/* ---------- 3. 转盘本体：双层描边 + 质感 ---------- */
+.wheel-card .wheel{
+  border:6px solid #fff;
+  box-shadow:
+    0 0 0 2.5px var(--wc-accent,#DA291C),
+    0 8px 20px rgba(16,24,40,.12),
+    inset 0 0 0 1px rgba(0,0,0,.05);
+  transition:transform var(--wt-spin-duration) cubic-bezier(.16,.84,.28,1);
+  will-change:transform;
+}
+/* 扇面质感：顶部高光 + 底部暗角（纯 CSS 叠加，不动 JS 的 conic-gradient） */
+.wheel-card .wheel-disc{position:relative}
+.wheel-card .wheel-disc::after{
+  content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 16%,rgba(255,255,255,.40),rgba(255,255,255,0) 42%),
+    radial-gradient(circle at 50% 102%,rgba(0,0,0,.16),rgba(0,0,0,0) 46%);
+}
+
+/* ---------- 4. 指针：游戏感的水滴钉 ---------- */
+.wheel-card .wheel-pointer{
+  border:none;width:26px;height:26px;top:-15px;
+  background:linear-gradient(180deg,#ff7a6c 0%,var(--wc-accent,#DA291C) 70%);
+  clip-path:polygon(50% 100%,4% 34%,20% 6%,50% 15%,80% 6%,96% 34%);
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.30));
+}
+@keyframes wt-bob{
+  0%,100%{transform:translateX(-50%) translateY(0)}
+  50%{transform:translateX(-50%) translateY(5px)}
+}
+.wheel-card.idle .wheel-pointer{animation:wt-bob 1.4s ease-in-out infinite}
+
+/* 转动中：指针像被打桩一样左右甩 */
+@keyframes wt-tick{
+  0%,100%{transform:translateX(-50%) rotate(0deg)}
+  25%{transform:translateX(-50%) rotate(11deg)}
+  75%{transform:translateX(-50%) rotate(-11deg)}
+}
+.wheel-card.spinning .wheel-pointer{
+  animation:wt-tick .19s cubic-bezier(.45,.05,.55,.95) infinite;
+  transform-origin:50% 22%;
+}
+
+/* ---------- 5. 中心 hub ---------- */
+.wheel-card .wheel-hub{
+  width:46%;height:46%;font-size:12px;letter-spacing:.02em;
+  background:radial-gradient(circle at 32% 26%,#ffffff 58%,#f3edde 100%);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,.16),
+    0 0 0 3px rgba(255,255,255,.92),
+    0 0 0 4.5px var(--wc-accent,#DA291C);
+}
+/* idle：hub 呼吸提示"转一下" */
+@keyframes wt-hub-idle{
+  0%,100%{transform:translate(-50%,-50%) scale(1)}
+  50%{transform:translate(-50%,-50%) scale(1.06)}
+}
+.wheel-card.idle .wheel-hub{animation:wt-hub-idle 1.8s ease-in-out infinite}
+/* spinning：省略号轻微搏动 */
+@keyframes wt-hub-throb{
+  0%,100%{transform:translate(-50%,-50%) scale(1)}
+  50%{transform:translate(-50%,-50%) scale(1.09)}
+}
+.wheel-card.spinning .wheel-hub{animation:wt-hub-throb .9s ease-in-out infinite}
+
+/* ---------- 6. 结果反馈：pop + 光环 + 彩纸（结果出现时各触发一次） ----------
+   原理：spin 结束时 JS 移除 .spinning，卡片"新匹配"下面的选择器，动画自动重放 */
+@keyframes wt-pop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
+.wheel-card:not(.idle):not(.spinning) .wheel-hub{
+  animation:wt-pop .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes wt-pop-text{
+  0%{opacity:0;transform:scale(.7) translateY(5px)}
+  60%{opacity:1;transform:scale(1.10) translateY(0)}
+  100%{opacity:1;transform:scale(1) translateY(0)}
+}
+.wheel-card:not(.idle):not(.spinning) .wc-result{
+  animation:wt-pop-text .42s cubic-bezier(.34,1.56,.64,1) both;
+}
+.wheel-card.idle .wc-result{color:#9ca3af;font-weight:600}
+
+/* 金色光环扩散（.wheel-wrap::after，一次性） */
+@keyframes wt-ring{
+  0%{transform:scale(.70);opacity:.9}
+  100%{transform:scale(1.16);opacity:0}
+}
+.wheel-card:not(.idle):not(.spinning) .wheel-wrap::after{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  border:3px solid rgba(255,199,44,.60);
+  animation:wt-ring .7s ease-out both;pointer-events:none;z-index:5;
+}
+/* 彩纸：10 个色点从中心炸开（.wheel-wrap::before，box-shadow 动画，一次性） */
+@keyframes wt-confetti{
+  0%{
+    box-shadow:0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0),
+               0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0),
+               0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0),
+               0 0 0 rgba(0,0,0,0);
+  }
+  55%{
+    box-shadow:30px -24px 0 #DA291C,-34px -18px 0 #FFC72C,20px 28px 0 #E8563F,
+               -25px 30px 0 #1B7FA8,38px 4px 0 #F5A623,-40px 2px 0 #0f9d58,
+               8px -36px 0 #FFC72C,-10px 34px 0 #DA291C,34px 20px 0 #FFC72C,
+               -30px -30px 0 #E8563F;
+  }
+  100%{
+    box-shadow:44px -34px 0 rgba(218,41,28,0),-49px -26px 0 rgba(255,199,44,0),
+               29px 40px 0 rgba(232,86,63,0),-36px 43px 0 rgba(27,127,168,0),
+               54px 6px 0 rgba(245,166,35,0),-57px 3px 0 rgba(15,157,88,0),
+               11px -52px 0 rgba(255,199,44,0),-14px 49px 0 rgba(218,41,28,0),
+               49px 29px 0 rgba(255,199,44,0),-43px -43px 0 rgba(232,86,63,0);
+  }
+}
+.wheel-card:not(.idle):not(.spinning) .wheel-wrap::before{
+  content:"";position:absolute;left:50%;top:50%;
+  width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:2px;
+  background:transparent;animation:wt-confetti .85s ease-out both;
+  pointer-events:none;z-index:6;
+}
+/* 中奖卡片微光（锁定卡除外，避免和锁定脉冲打架） */
+@keyframes wt-win{
+  0%{box-shadow:0 0 0 0 rgba(255,199,44,0)}
+  30%{box-shadow:0 0 0 6px rgba(255,199,44,.32),0 10px 24px rgba(218,41,28,.10)}
+  100%{box-shadow:0 0 0 0 rgba(255,199,44,0)}
+}
+.wheel-card:not(.idle):not(.spinning):not(.locked){animation:wt-win 1.1s ease-out}
+
+/* ---------- 7. 锁定态：绿色光晕脉冲 ---------- */
+.wheel-card.locked{
+  border-color:rgba(15,157,88,.55);
+  background:linear-gradient(180deg,#f2fbf5,#ffffff);
+  animation:wt-lock-pulse 2.2s ease-in-out infinite;
+}
+@keyframes wt-lock-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(15,157,88,.30)}
+  50%{box-shadow:0 0 0 5px rgba(15,157,88,.10)}
+}
+.wheel-card.locked::before{background:var(--wt-green)}
+.wheel-card.locked .wc-lock{color:var(--wt-green);font-weight:700}
+
+/* ---------- 8. 转动中卡片 ---------- */
+.wheel-card.spinning{
+  border-color:var(--wc-accent,#DA291C);
+  background:linear-gradient(180deg,#fffdf3,#ffffff);
+  box-shadow:0 0 0 3px rgba(255,199,44,.22),0 10px 24px rgba(16,24,40,.10);
+}
+
+/* ---------- 9. 按钮：单盘「转」按各盘配色 + 划光 ---------- */
+.wheel-card .wc-spin{
+  background:linear-gradient(135deg,var(--wc-accent,#DA291C),var(--wc-accent-dark,#b31f14));
+  box-shadow:0 3px 10px rgba(0,0,0,.18);
+  position:relative;overflow:hidden;
+}
+.wheel-card .wc-spin::after{
+  content:"";position:absolute;top:0;left:-80%;width:60%;height:100%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:skewX(-20deg);transition:left .35s ease;
+}
+.wheel-card .wc-spin:hover:not(:disabled)::after{left:120%}
+
+/* 工具栏：结算按钮可用时升级为主 CTA */
+#wheelSection #settleBtn:not(:disabled){
+  background:linear-gradient(135deg,var(--wt-red),var(--wt-red-dark));
+  border-color:transparent;color:#fff;
+  box-shadow:0 4px 14px rgba(218,41,28,.28);
+}
+#wheelSection #settleBtn:not(:disabled):hover{transform:translateY(-1px)}
+
+/* ---------- 10. 移动端（两列小盘） ---------- */
+@media(max-width:560px){
+  #wheelGrid{gap:10px}
+  .wheel-card{border-radius:13px}
+  .wheel-card .wc-head{font-size:12px}
+  .wheel-card .wc-head span:first-child{width:22px;height:22px;font-size:12px}
+  .wheel-card .wheel-wrap{max-width:132px}
+  .wheel-card .wheel{border-width:5px}
+  .wheel-card .wheel-hub{font-size:10px}
+  .wheel-card .wheel-pointer{width:20px;height:20px;top:-12px}
+}
+
+/* ---------- 11. 减少动态偏好：关掉所有装饰动画（保留 JS 旋转） ---------- */
+@media (prefers-reduced-motion: reduce){
+  .wheel-card.idle .wheel-pointer,
+  .wheel-card.spinning .wheel-pointer,
+  .wheel-card.idle .wheel-hub,
+  .wheel-card.spinning .wheel-hub,
+  .wheel-card:not(.idle):not(.spinning) .wheel-hub,
+  .wheel-card:not(.idle):not(.spinning) .wc-result,
+  .wheel-card:not(.idle):not(.spinning) .wheel-wrap::after,
+  .wheel-card:not(.idle):not(.spinning) .wheel-wrap::before,
+  .wheel-card:not(.idle):not(.spinning):not(.locked),
+  .wheel-card.locked{animation:none}
+}
+
+/* ============================================================
+   自测清单（DSH 接入后请逐条检查）：
+   1. 表单区/结算区样式无变化（证明无全局污染）；
+   2. 四张卡顶部分别是 红/琥珀/珊瑚/蓝 四种色条，指针与「转」按钮同色；
+   3. idle 时指针上下浮动、hub"转一下"呼吸，均不抖动布局；
+   4. 单转与全转：转动中指针甩动，结束后价格 pop + 金环 + 彩纸各一次；
+   5. 锁定某盘：绿框绿字 + 缓慢脉冲；此时点「全部转起来」，该盘不动、其余正常；
+      窗口缩到 <560px 两列布局不溢出。
+   ============================================================ */
