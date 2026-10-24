@@ -153,6 +153,119 @@ python src/meal_planner.py --people 4 --budget 100 --no-spicy --want 鸡翅   --
 
 网页版对应「想吃」输入框（逗号分隔）。
 
+## 启动与调用前端（安装后怎么用）
+
+> **仓库位置（重要）**：本 Skill 的业务代码在 `D:\桌面\WaytoAGI-Dine`
+> 下面所有命令都**先切换到该目录**再执行：
+>
+> ```bash
+> cd /d "D:\桌面\WaytoAGI-Dine"        # Windows cmd
+> cd "D:\桌面\WaytoAGI-Dine"           # bash / PowerShell
+> ```
+>
+> Skill 文件本身只是规范，不含业务代码。若仓库被移动，改上面这一行路径即可；
+> `scripts/skill_boot.py` 会自动从自身位置反推仓库根，所以只要它跟着仓库走就不用改。
+
+
+这一节是给 **AI 执行**用的标准动作，不是给人看的说明。
+用户装好本 Skill 后，任何一次触发都应当按这里的顺序处理，**不要**让用户自己去敲命令。
+
+### 一、识别触发
+
+用户说出下面任意一类话，就启动本 Skill：
+
+| 类型 | 例子 |
+|---|---|
+| 直接喊打开 | 「打开麦门省钱搭子」「启动点餐助手」「把点餐界面打开」「开一下那个转盘」 |
+| 点餐需求 | 「帮我点麦当劳」「预算 60 块两个人怎么吃」「四个人聚餐配一下」 |
+| 结构/偏好 | 「要一份主食一份小吃一份甜品一份饮料」「想吃鸡翅」「不吃辣，忌口牛肉」 |
+| 玩法 | 「抽个转盘」「随便抽一顿」 |
+| 作品名 | 「麦门」「麦门省钱搭子」「麦当劳 MCP 那个项目」 |
+
+### 二、标准动作（按顺序执行，不要跳步）
+
+**第 1 步：探测或拉起服务**
+
+```bash
+python scripts/skill_boot.py --json
+```
+
+返回示例：
+
+```json
+{"ok": true, "running": true, "started": false, "port": 8808,
+ "url": "http://127.0.0.1:8808/"}
+```
+
+- `started: false` → 服务本来就在跑，直接进入第 2 步；
+- `started: true` → 本次刚拉起，稍等它就绪后同样进入第 2 步；
+- `ok: false` → 见第四节「失败排查」。
+
+**第 2 步：把 URL 原样给用户**
+
+把 `url` 字段完整贴出来（形如 `http://127.0.0.1:8808/`），
+并告诉用户三个模式分别点哪里：
+
+- 「按结构配 · 求最低价」→ 填预算 + 主食/小吃/甜品/饮品各几份
+- 「帮我搭配 · 推荐方案」→ 只填预算，出 2~3 个方案
+- 「🎰 美食转盘 · 随机抽」→ 四个盘各转一格，抽完点结算看真实价格
+
+**第 3 步：按需决定要不要真的打开前端**
+
+| 用户意图 | 正确做法 |
+|---|---|
+| 「打开界面 / 我自己点」 | 起服务 + 给 URL，等他自己操作 |
+| 「你直接帮我配」 | **不必开网页**，直接走命令行（见第三节），把方案文字给他 |
+| 既要界面又要结果 | 起服务给 URL，同时在对话里给出方案 |
+
+> 关键：**不要为了回答一个点餐问题去强行开网页**。网页是给需要可视化的人用的；
+> 纯文字方案用命令行更快（约 12~18 秒），也更省事。
+
+### 三、不开前端时的等价命令
+
+```bash
+# 默认模式：给预算出 2~3 个方案
+python src/meal_planner.py --people 2 --budget 130 --mode pickup --city 绍兴 --keyword 上虞
+
+# 结构模式：指定份数求最低价
+python src/meal_planner.py --budget 100 --main 1 --snack 1 --dessert 1 --drink 1   --mode pickup --city 绍兴 --keyword 上虞
+
+# 想吃某样东西（软偏好）
+python src/meal_planner.py --people 4 --budget 100 --no-spicy --want 鸡翅   --mode pickup --city 绍兴 --keyword 上虞
+```
+
+到店搜索必须给 `--city` 和 `--keyword`；外送用 `--mode delivery`（自动取账号已有地址）。
+
+### 四、失败排查
+
+| 现象 | 原因与处理 |
+|---|---|
+| `ok:false` + 启动超时 | 手动跑 `python web/server.py` 看报错；常见是端口全被占或 Python 版本过低 |
+| 页面能开但查询报错 | 环境变量 `MCD_MCP_TOKEN` 没配，或 Token 过期。引导用户去 <https://open.mcd.cn/mcp> 申请 |
+| 提示找不到 python | 未安装或未加入 PATH；提示安装 Python 3.8+ 并勾选 "Add Python to PATH" |
+| 端口不是 8808 | 正常现象：端口被占会自动往后找，**一律以返回的 url 为准** |
+| 门店查不到 | `--city` / `--keyword` 组合不对，换个关键词或改用外送模式 |
+
+### 五、把本 Skill 装进 DSH（三步）
+
+1. 建目录并放入技能文件：
+
+   ```bash
+   mkdir -p ~/.dsh/skills/mcd-budget-meal
+   cp SKILL.md ~/.dsh/skills/mcd-budget-meal/SKILL.md
+   ```
+
+2. 确认本仓库位置（启动脚本会从自身位置反推出仓库根，无需额外配置）：
+
+   ```bash
+   python scripts/skill_boot.py --status
+   ```
+
+3. 之后对 AI 说「打开麦门省钱搭子」，它会执行 `skill_boot.py` 并把地址给你。
+
+> 注意：Skill 文件本身不含业务代码，它依赖本仓库的 `src/` 与 `web/`。
+> 所以 skill 要指向**仓库所在位置**；换个目录存放仓库时，`skill_boot.py` 会自动跟随。
+
 ## 模式二：结构指定（按份数求最低价）
 
 当用户给出**餐品结构**而不是"随便配"时触发，例如：
