@@ -155,16 +155,22 @@ python src/meal_planner.py --people 4 --budget 100 --no-spicy --want 鸡翅   --
 
 ## 启动与调用前端（安装后怎么用）
 
-> **仓库位置（重要）**：本 Skill 的业务代码在 `D:\桌面\WaytoAGI-Dine`
-> 下面所有命令都**先切换到该目录**再执行：
+> **仓库位置（重要）**：本 Skill 只是规范，不含业务代码。
+> 下面所有命令都要在**仓库根目录**执行——也就是你 clone 下来的那个文件夹，
+> 判断依据是里面有 `src/`、`web/`、`scripts/` 三个子目录。
 >
 > ```bash
-> cd /d "D:\桌面\WaytoAGI-Dine"        # Windows cmd
-> cd "D:\桌面\WaytoAGI-Dine"           # bash / PowerShell
+> cd /d "你的仓库路径"        # Windows cmd
+> cd "你的仓库路径"           # bash / PowerShell
 > ```
 >
-> Skill 文件本身只是规范，不含业务代码。若仓库被移动，改上面这一行路径即可；
-> `scripts/skill_boot.py` 会自动从自身位置反推仓库根，所以只要它跟着仓库走就不用改。
+> 本作品作者开发时的路径是 `D:\桌面\WaytoAGI-Dine`，**你下载到别处就换成你自己的**。
+>
+> 下面命令一律用相对路径（`web/server.py`、`scripts/skill_boot.py`），
+> 只要 cd 对了就能跑；`scripts/skill_boot.py` 还会从自身位置反推仓库根，不依赖你输入路径。
+>
+> 不知道自己在哪？在仓库里执行 `python scripts/skill_boot.py --status` 即可，
+> 它会打印服务状态；若不认识当前目录会明确报错，不会静默失败。
 
 
 这一节是给 **AI 执行**用的标准动作，不是给人看的说明。
