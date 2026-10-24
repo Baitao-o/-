@@ -366,3 +366,61 @@ python src/meal_planner.py --budget 100 --main 1 --snack 1 --drink 1 --mode pick
 | `not_found` | `--want 龙虾` | ⚠️ 本店菜单里没有「龙虾」相关商品，这个偏好无法满足（不是预算问题，不用再提高预算） |
 | `excluded` | `--want 牛肉 --avoid 牛肉` | ⚠️ 有 1 个「牛肉」相关商品，但都被你的忌口排除了 |
 | `found` | `--no-spicy --want 鸡翅` | ℹ️ 「鸡翅」本店有 2 个可选（如 薄皮焦香V翅、薄皮V翅双拼十翅） |
+
+
+---
+
+## 美食转盘实跑记录（WB-5 补充）
+
+服务：`python web/server.py`，`http://127.0.0.1:8808`
+门店：麦当劳绍兴上虞上百万悦城餐厅（storeCode 3330419）
+
+### 1) 生成四个盘的候选池
+
+```bash
+curl -s http://127.0.0.1:8808/api/wheel/pool -H "Content-Type: application/json"   -d '{"budget":100,"people":4,"mode":"pickup","city":"绍兴","keyword":"上虞"}'
+```
+
+关键返回（节选）：
+
+```json
+{
+  "ok": true,
+  "slotBudget": 25.0,
+  "itemPoolSize": 109,
+  "pools": {
+    "main":    [ {"name":"牛肉堡单品精选","price":13.5}, "...共 12 个" ],
+    "snack":   [ {"name":"苹果片","price":7.0},        "...共 12 个" ],
+    "dessert": [ {"name":"灰焰圆筒","price":5.0},      "...共 9 个" ],
+    "drink":   [ {"name":"雪碧","price":9.5},          "...共 11 个" ]
+  }
+}
+```
+
+### 2) 结算（取每盘第一件，便于复现）
+
+```bash
+curl -s http://127.0.0.1:8808/api/wheel/settle -H "Content-Type: application/json"   -d '{"storeCode":"3330419","mode":"pickup","items":[
+        {"code":"<牛肉堡code>","quantity":1},
+        {"code":"<苹果片code>","quantity":1},
+        {"code":"<灰焰圆筒code>","quantity":1},
+        {"code":"<雪碧code>","quantity":1}]}'
+```
+
+关键返回：
+
+```json
+{
+  "ok": true,
+  "price": 35.0,
+  "originalPrice": 35.0,
+  "discount": 0.0,
+  "productPrice": 35.0,
+  "deliveryPrice": 0.0,
+  "packingPrice": 0.0
+}
+```
+
+**结论**：四件合计实付 **¥35.00**，在预算 ¥100 内；到店自取无配送费与打包费。
+另一次随机抽取（龙焰鸡腿堡 + 麦乐鸡 + 新地 + 纯牛奶）实付 ¥53.40，原价 ¥61.50、优惠 ¥8.10，
+说明结算确实走了真实优惠计算，不是简单加和。
