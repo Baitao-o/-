@@ -539,6 +539,38 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(500, {"ok": False, "error": f"服务器内部错误：{exc}"})
 
 
+def _port_in_use(host: str, port: int) -> bool:
+    """主动探测端口是否已被占用。
+
+    不能只靠 bind 抛 OSError 来判断：Windows 上 SO_REUSEADDR 的语义与 Linux 不同，
+    两个进程可以同时 bind 同一个端口而不报错（实测会出现两个进程都 LISTENING 8808，
+    流量被随机分流）。所以必须先主动连一下。
+    """
+    import socket
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    probe.settimeout(0.35)
+    try:
+        return probe.connect_ex((host, port)) == 0
+    finally:
+        probe.close()
+
+
+def _bind(host: str, start_port: int, tries: int = 12):
+    """绑定端口；被占用时自动往后找，省得用户先手动杀进程。"""
+    last_exc = None
+    for port in range(start_port, start_port + tries):
+        if _port_in_use(host, port):
+            if port == start_port:
+                print(f"[提示] 端口 {start_port} 已被占用，自动尝试后续端口…")
+            continue
+        try:
+            return ThreadingHTTPServer((host, port), Handler), port
+        except OSError as exc:
+            last_exc = exc
+    raise SystemExit(f"无法绑定端口 {start_port}~{start_port + tries - 1}：{last_exc}")
+
+
 def main() -> int:
     try:
         get_client()
@@ -546,12 +578,13 @@ def main() -> int:
         print(f"[警告] {exc}")
         print("        页面可以打开，但查询会失败；请先配置 MCD_MCP_TOKEN。\n")
 
-    url = f"http://{HOST}:{PORT}/"
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    server, port = _bind(HOST, PORT)
+    url = f"http://{HOST}:{port}/"
     print("=" * 56)
     print("  麦门省钱搭子 · 可视化界面")
     print(f"  打开：{url}")
-    print("  Ctrl+C 停止")
+    print("  三个模式：按结构配 / 帮我搭配 / 美食转盘")
+    print("  Ctrl+C 停止（或直接关闭窗口）")
     print("=" * 56)
     if os.environ.get("OPEN_BROWSER", "1") == "1":
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
