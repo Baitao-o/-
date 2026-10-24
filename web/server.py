@@ -165,7 +165,22 @@ def api_plan(payload: dict) -> dict:
             structure, budget, avoid=avoid, no_spicy=no_spicy
         )
         if err:
-            raise ValueError(err)
+            # 「配不齐」不是服务器错误，而是合法的业务结论。
+            # SKILL 规范要求如实给出最低所需金额，因此返回结构化结果让前端专门展示，
+            # 而不是抛 400 让用户只看到一行红字。
+            result.update({
+                "mode": "structure",
+                "feasible": False,
+                "infeasible": True,
+                "reason": err.get("kind"),
+                "error": err.get("message"),
+                "minimumNeeded": err.get("minimumNeeded"),
+                "gap": err.get("gap"),
+                "structure": structure,
+                "notice": ("该结构在当前门店无法用这个预算配齐；"
+                           "以上为按门店当前可售商品估算的最低所需金额，最终以下单页面为准。"),
+            })
+            return result
 
         verify_n = min(len(cands), 12)
         for p in cands[:verify_n]:

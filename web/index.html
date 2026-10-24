@@ -230,7 +230,11 @@
     </div>
 
     <div style="margin-top:18px">
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">
+      <div class="seg" id="planModeSeg" style="margin-bottom:14px">
+        <button class="on" data-pmode="structure">按结构配 · 求最低价</button>
+        <button data-pmode="budget">帮我搭配 · 推荐方案</button>
+      </div>
+      <label id="structLabel" style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">
         餐品结构（各要几份，0 表示不要）
       </label>
       <div class="struct-grid" id="structGrid">
@@ -290,6 +294,7 @@
 
   const state = {
     mode: "pickup",
+    planMode: "structure",   // structure = 按结构求最低价；budget = 帮我搭配
     struct: { main: 1, snack: 1, dessert: 1, drink: 1 },
   };
 
@@ -303,6 +308,21 @@
       btn.classList.add("on");
       state.mode = btn.dataset.mode;
       $("#storeRow").style.display = state.mode === "pickup" ? "flex" : "none";
+    });
+  });
+
+  // ---------- 规划模式切换（按结构 / 帮我搭配）----------
+  $$("#planModeSeg button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      $$("#planModeSeg button").forEach(function(b){ b.classList.remove("on"); });
+      btn.classList.add("on");
+      state.planMode = btn.dataset.pmode;
+      var showStruct = state.planMode === "structure";
+      $("#structGrid").style.display = showStruct ? "grid" : "none";
+      $("#structLabel").style.display = showStruct ? "block" : "none";
+      $("#go").innerHTML = showStruct
+        ? '<span>🍔</span> 给我这个结构的最低价'
+        : '<span>🎲</span> 帮我搭配几个方案';
     });
   });
 
@@ -443,6 +463,48 @@
     $("#result").classList.add("show");
   }
 
+  // ---------- 渲染：预算内配不齐（如实给最低所需，不硬凑） ----------
+  function renderInfeasible(data){
+    const req = data.request || {};
+    const budget = req.budget || 0;
+    const min = data.minimumNeeded;
+    const gap = data.gap;
+
+    var structDesc = "";
+    Object.keys(data.structure || {}).forEach(function(k){
+      if (data.structure[k] > 0) {
+        structDesc += (SLOT_ICON[k] || "") + " " + (data.structure[k]) + " 份　";
+      }
+    });
+
+    var advice = "";
+    if (min) {
+      advice = '<div class="total-box" style="border-color:#fed7aa;background:linear-gradient(135deg,#fff7ed,#fffdfa)">'
+        + '<div class="total-line"><span class="lb">这个结构的最低所需</span>'
+        + '<span class="big" style="color:#c77700">' + money(min) + '</span></div>'
+        + '<div class="bar-note"><span>你的预算 ' + money(budget) + '</span>'
+        + '<span>还差 ' + money(gap) + '</span></div>'
+        + '</div>';
+    }
+
+    $("#result").innerHTML =
+      '<div class="card">'
+      + '<div class="store-head"><div><div class="nm">' + esc(data.store.name) + '</div>'
+      + '<div class="meta">门店 ' + esc(data.store.storeCode) + ' · '
+      + (data.itemPoolSize || 0) + ' 个可售商品</div></div>'
+      + '<div class="badge warn">⚠ 配不齐</div></div>'
+      + '<div style="font-size:14px;line-height:1.9">'
+      +   '你要的结构：' + structDesc + '<br>'
+      +   esc(data.error || "该结构在当前门店无法用这个预算配齐")
+      + '</div>'
+      + advice
+      + '<div class="breakdown">建议：把预算提到 ' + (min ? money(min) : "更高")
+      + ' 以上；或减少份数（例如先去掉甜品 / 饮品）；也可以换一家门店看看。</div>'
+      + '<div class="notice">' + esc(data.notice) + '</div>'
+      + '</div>';
+    $("#result").classList.add("show");
+  }
+
   // ---------- 提交 ----------
   async function run(){
     const budget = Number($("#budget").value || 0);
@@ -457,11 +519,14 @@
       avoid: $("#avoid").value.trim(),
       noSpicy: $("#noSpicy").checked,
       perPerson: $("#perPerson").checked,
-      main: state.struct.main,
-      snack: state.struct.snack,
-      dessert: state.struct.dessert,
-      drink: state.struct.drink,
+      main: 0, snack: 0, dessert: 0, drink: 0,
     };
+    if (state.planMode === "structure") {
+      payload.main = state.struct.main;
+      payload.snack = state.struct.snack;
+      payload.dessert = state.struct.dessert;
+      payload.drink = state.struct.drink;
+    }
 
     const hasStruct = payload.main + payload.snack + payload.dessert + payload.drink > 0;
 
@@ -485,7 +550,8 @@
       if (!res.ok || !data.ok) throw new Error(data.error || ("请求失败 " + res.status));
 
       setStatus(null);
-      if (data.mode === "structure") renderStructure(data);
+      if (data.infeasible) renderInfeasible(data);
+      else if (data.mode === "structure") renderStructure(data);
       else renderBudget(data);
     } catch (err) {
       if (err.name === "AbortError") setStatus("error", "请求超时（90 秒）。请稍后重试，或换成到店自取。");

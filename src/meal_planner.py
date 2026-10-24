@@ -535,20 +535,17 @@ class MealPlanner:
         per_category: int = 5,
         budget_slack: float = 1.15,
         max_candidates: int = 24,
-    ) -> tuple[list[Plan], str]:
-        """按「品类 -> 份数」结构求解，返回候选组合（按估算价升序）。
+    ) -> tuple[list[Plan], dict]:
+        """按「品类 -> 份数」结构求解，返回 (候选组合, 错误信息)。
 
-        structure 例：{"main": 1, "snack": 1, "dessert": 1, "drink": 1}
-
-        求最低价的关键：同一品类要 N 份时，最优解必然是取该品类最便宜的商品 ×N，
-        因此每类只需取最便宜的前几款作为候选，再跨品类做笛卡尔积。
-        估算价超预算的组合仍保留一定容差（优惠可能把真实价拉回预算内）。
+        错误信息是 **dict** 而非字符串，便于网页端区分「配不齐」的三种原因
+        并展示最低所需金额（SKILL 规范要求如实说明，而不是笼统报错）。
         """
         import itertools
 
         need = {k: int(v) for k, v in (structure or {}).items() if int(v or 0) > 0}
         if not need:
-            return [], "没有指定任何品类份数"
+            return [], {"kind": "empty_structure", "message": "没有指定任何品类份数"}
 
         pools: dict[str, list[Item]] = {k: [] for k in need}
         for it in self.pool:
@@ -573,7 +570,11 @@ class MealPlanner:
             lst.sort(key=lambda i: i.price)
             pools[slot] = lst
             if not lst:
-                return [], f"该门店没有可售的「{self.SLOT_LABEL[slot]}」类商品"
+                return [], {
+                    "kind": "missing_category",
+                    "message": f"该门店没有可售的「{self.SLOT_LABEL[slot]}」类商品",
+                    "slot": slot,
+                }
 
         slots = list(need.keys())
         choice_lists = [pools[s][:per_category] for s in slots]
@@ -588,8 +589,14 @@ class MealPlanner:
 
         if not est_combos:
             cheapest = sum((pools[s][0].price * need[s]) for s in slots)
-            return [], (f"按该结构的最低商品总价约 ¥{cheapest:.2f}，"
-                        f"已超出预算 ¥{budget:.0f}；请提高预算或减少份数")
+            return [], {
+                "kind": "over_budget",
+                "message": (f"按该结构的最低商品总价约 ¥{cheapest:.2f}，"
+                            f"已超出预算 ¥{budget:.0f}；请提高预算或减少份数"),
+                "minimumNeeded": round(cheapest, 2),
+                "budget": budget,
+                "gap": round(cheapest - budget, 2),
+            }
 
         est_combos.sort(key=lambda x: x[0])
 
@@ -895,7 +902,7 @@ def main() -> int:
             structure, args.budget, avoid=avoid, no_spicy=args.no_spicy,
         )
         if err:
-            print(f"无法按该结构出方案：{err}", file=sys.stderr)
+            print(f"无法按该结构出方案：{err.get('message', err)}", file=sys.stderr)
             return 1
 
         # 对估算最便宜的一批做真实算价，避免「估算最低」≠「实付最低」
